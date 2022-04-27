@@ -6,7 +6,10 @@ import (
   "crypto/hmac"
   "crypto/x509"
   "crypto/elliptic"
+  "crypto/ecdsa"
+  "crypto/rand"
   "encoding/binary"
+  "bytes"
 )
 
 type HashAlgo uint8
@@ -91,6 +94,40 @@ func getKeypair(pvKeyBytes []byte, curve Curve) []byte {
       return pubKeyBytes
     default:
       panic("Unsupport elliptic curve")
+  }
+}
+
+func DeriveAddress(seed []byte, index uint32, curve Curve, hashAlgo HashAlgo) []byte {
+  publicKey, _ := DeriveKeypair(seed, index, curve)
+  hashedPublicKey := Hash(publicKey, hashAlgo)
+  return append([]byte{byte(curve)}, hashedPublicKey...)
+}
+
+func Sign(privateKey []byte, data []byte) []byte {
+  
+  byteReader := bytes.NewReader(privateKey)
+  curve, _ := byteReader.ReadByte()
+  byteReader.ReadByte()
+  
+  pvKeyBytes := make([]byte, 0)
+  byteReader.Read(pvKeyBytes)
+
+  switch (Curve(curve)) {
+    case P256:
+      pvKey, err := x509.ParseECPrivateKey(pvKeyBytes)
+      if err != nil {
+        panic(err)
+      }
+
+      sig, err := ecdsa.SignASN1(rand.Reader, pvKey, data)
+      if err != nil {
+        panic(err)
+      }
+
+      return sig
+      
+    default:
+      panic("Unsupported elliptic curve")
   }
 }
 
