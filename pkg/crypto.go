@@ -29,7 +29,12 @@ const (
   SECP256K1 Curve = 2
 )
 
-const SOFTWARE_ORIGIN_ID = 1
+type OriginID uint8
+
+const (
+  KEYCHAIN_ORIGIN_ID OriginID = 0
+  SOFTWARE_ORIGIN_ID OriginID = 1
+)
 
 //Hash create a hash digest from the data with an hash algorithm identification prepending the digest
 func Hash(content []byte, hashAlgo HashAlgo) []byte {
@@ -76,7 +81,7 @@ func derivePrivateKey(seed []byte, index uint32) []byte {
 }
 
 //GenerateDeterministicKeypair generate a new keypair deterministically with a given private key, curve and origin id
-func GenerateDeterministicKeypair(pvKey []byte, curve Curve, originID uint8) ([]byte, []byte) {
+func GenerateDeterministicKeypair(pvKey []byte, curve Curve, originID OriginID) ([]byte, []byte) {
   pubKey := getKeypair(pvKey, curve)
   keyMetadata := []byte{ byte(curve), byte(originID) }
 
