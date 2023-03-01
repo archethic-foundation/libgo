@@ -4,13 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/sha512"
-	"crypto/x509"
 	"encoding/base64"
+	"encoding/binary"
 	"fmt"
-	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -57,7 +58,7 @@ func NewKeychain(seed []byte) *Keychain {
 		version: 1,
 		services: map[string]Service{
 			"uco": {
-				derivationPath: "m/650'/0'/0'",
+				derivationPath: "m/650'/0/0",
 				curve:          P256,
 				hashAlgo:       SHA256,
 			},
@@ -77,17 +78,17 @@ func (k Keychain) ToDID() DID {
 	address := DeriveAddress(k.seed, 0, P256, SHA256)
 	keyMaterials := make([]DIDKeyMaterial, 0)
 
-	for _, service := range k.services {
+	for serviceName, service := range k.services {
 		splittedPath := strings.Split(service.derivationPath, "/")
 		for i := 0; i < len(splittedPath); i++ {
 			splittedPath[i] = strings.ReplaceAll(splittedPath[i], "'", "")
-			purpose := splittedPath[0]
+			purpose := splittedPath[i]
 			if purpose == "650" {
-				publicKey, _ := deriveArchethicKeypair(k.seed, service.derivationPath, 0, service.curve)
+				publicKey, _ := DeriveArchethicKeypair(k.seed, service.derivationPath, 0, service.curve)
 				keyMaterials = append(keyMaterials, DIDKeyMaterial{
-					id:           fmt.Sprintf("did:archethic:%x#key%d", address, len(keyMaterials)),
+					id:           fmt.Sprintf("did:archethic:%x#%s", address, serviceName),
 					keyType:      "JsonWebKey2020",
-					publicKeyJwk: keyToJWK(publicKey),
+					publicKeyJwk: KeyToJWK(publicKey, serviceName),
 				})
 			}
 		}
@@ -103,30 +104,41 @@ func (k Keychain) ToDID() DID {
 	}
 }
 
-func keyToJWK(publicKey []byte) map[string]string {
+func KeyToJWK(publicKey []byte, keyId string) map[string]string {
 	curveID := publicKey[0]
 	keyBytes := publicKey[2:]
 	switch Curve(curveID) {
-	case P256:
-		pub, err := x509.ParsePKIXPublicKey(keyBytes)
-		if err != nil {
-			panic(err)
+	case ED25519:
+		key := ed25519.PublicKey(keyBytes)
+		return map[string]string{
+			"kty": "OKP",
+			"crv": "Ed25519",
+			"x":   pointToBase64Url(key),
+			"kid": keyId,
 		}
+	case P256:
 
-		ecdsaKey := pub.(*ecdsa.PublicKey)
+		curve := elliptic.P256()
+		pubKeyX, pubKeyY := elliptic.Unmarshal(curve, keyBytes)
+		if pubKeyX == nil || pubKeyY == nil {
+			panic("can't unmarshall public key")
+		}
+		publicKey := ecdsa.PublicKey{Curve: curve, X: pubKeyX, Y: pubKeyY}
+
 		return map[string]string{
 			"kty": "EC",
 			"crv": "P256",
-			"x":   pointToBase64Url(ecdsaKey.X),
-			"y":   pointToBase64Url(ecdsaKey.Y),
+			"x":   pointToBase64Url(publicKey.X.Bytes()),
+			"y":   pointToBase64Url(publicKey.Y.Bytes()),
+			"kid": keyId,
 		}
 	default:
 		panic("Unsupported elliptic curve")
 	}
 }
 
-func pointToBase64Url(p *big.Int) string {
-	buf := base64.StdEncoding.EncodeToString(p.Bytes())
+func pointToBase64Url(p []byte) string {
+	buf := base64.StdEncoding.EncodeToString(p)
 
 	r1 := regexp.MustCompile(`/\+/g`)
 	r2 := regexp.MustCompile(`/\//g`)
@@ -142,7 +154,10 @@ func pointToBase64Url(p *big.Int) string {
 func (k Keychain) toBytes() []byte {
 	buf := make([]byte, 0)
 
-	buf = append(buf, byte(k.version))
+	version := make([]byte, 4)
+	binary.BigEndian.PutUint32(version, uint32(k.version))
+	buf = append(buf, version...)
+
 	buf = append(buf, byte(len(k.seed)))
 	buf = append(buf, k.seed...)
 	buf = append(buf, byte(len(k.services)))
@@ -163,10 +178,10 @@ func (k Keychain) DeriveKeypair(serviceName string, index uint8) ([]byte, []byte
 		panic("Service doesn't exists in the keychain")
 	}
 
-	return deriveArchethicKeypair(k.seed, service.derivationPath, index, service.curve)
+	return DeriveArchethicKeypair(k.seed, service.derivationPath, index, service.curve)
 }
 
-func deriveArchethicKeypair(seed []byte, derivationPath string, index uint8, curve Curve) ([]byte, []byte) {
+func DeriveArchethicKeypair(seed []byte, derivationPath string, index uint8, curve Curve) ([]byte, []byte) {
 	indexedPath := replaceDerivationPathIndex(derivationPath, index)
 	h := sha256.New()
 	h.Write([]byte(indexedPath))
@@ -185,23 +200,30 @@ func replaceDerivationPathIndex(derivationPath string, index uint8) string {
 	return strings.Join(splitted[:], "/")
 }
 
-func DecodeKeychain(binary []byte) *Keychain {
-	byteReader := bufio.NewReader(bytes.NewReader(binary))
-	version, _ := byteReader.ReadByte()
+func DecodeKeychain(binaryInput []byte) *Keychain {
+	byteReader := bufio.NewReader(bytes.NewReader(binaryInput))
+	version := make([]byte, 4)
+	byteReader.Read(version)
+	versionInt := uint8(version[3])
+
 	seedSize, _ := byteReader.ReadByte()
-	seed, _ := byteReader.Peek(int(seedSize))
+	seed := make([]byte, seedSize)
+	byteReader.Read(seed)
 	nbServices, _ := byteReader.ReadByte()
 
 	k := &Keychain{
-		seed:    seed,
-		version: version,
+		seed:     seed,
+		version:  versionInt,
+		services: make(map[string]Service),
 	}
 
 	for i := 0; i < int(nbServices); i++ {
 		serviceNameLength, _ := byteReader.ReadByte()
-		serviceName, _ := byteReader.Peek(int(serviceNameLength))
+		serviceName := make([]byte, serviceNameLength)
+		byteReader.Read(serviceName)
 		derivationPathLength, _ := byteReader.ReadByte()
-		derivationPath, _ := byteReader.Peek(int(derivationPathLength))
+		derivationPath := make([]byte, derivationPathLength)
+		byteReader.Read(derivationPath)
 		curveID, _ := byteReader.ReadByte()
 		hashAlgoID, _ := byteReader.ReadByte()
 
