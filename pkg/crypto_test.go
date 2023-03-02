@@ -1,6 +1,8 @@
 package archethic
 
 import (
+	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"log"
 	"reflect"
@@ -111,23 +113,17 @@ func TestEcEncrypt(t *testing.T) {
 	}
 }
 
-// func TestEncryptDecrypt(t *testing.T) {
-// 	key := make([]byte, 32)
-// 	rand.Read(key)
+func TestEncryptDecrypt(t *testing.T) {
+	key := make([]byte, 32)
+	rand.Read(key)
 
-// 	data := []byte("hello")
+	data := []byte("hello")
 
-// 	encrypted, err := AesEncrypt(data, key)
-// 	if err != nil {
-// 		t.Errorf("Error encrypting data: %v", err)
-// 	}
+	encrypted := AesEncrypt(data, key)
 
-// 	decrypted, err := AesDecrypt(encrypted, key)
-// 	if err != nil {
-// 		t.Errorf("Error decrypting data: %v", err)
-// 	}
+	decrypted := AesDecrypt(encrypted, key)
 
-// 	if !bytes.Equal(decrypted, data) {
-// 		t.Errorf("Decrypted data does not match original data")
-// 	}
-// }
+	if !bytes.Equal(decrypted, data) {
+		t.Errorf("Decrypted data does not match original data")
+	}
+}

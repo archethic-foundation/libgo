@@ -427,6 +427,34 @@ func aesAuthDecrypt(encrypted, aesKey, iv []byte) []byte {
 	return plaintext
 }
 
+func AesEncrypt(data, key []byte) []byte {
+
+	iv := make([]byte, 12)
+	_, err := rand.Read(iv)
+	if err != nil {
+		panic(err)
+	}
+
+	encrypted := aesAuthEncrypt(data, key, iv)
+	result := make([]byte, 0)
+
+	result = append(result, iv...)
+	return append(result, encrypted...)
+}
+
+func AesDecrypt(cipherText, key []byte) []byte {
+
+	byteReader := bytes.NewReader(cipherText)
+
+	iv := make([]byte, 12)
+	byteReader.Read(iv)
+
+	encrypted := make([]byte, byteReader.Len())
+	byteReader.Read(encrypted)
+
+	return aesAuthDecrypt(encrypted, key, iv)
+}
+
 func EncodeInt32(number uint32) []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, number)
