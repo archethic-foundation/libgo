@@ -190,6 +190,7 @@ func DeriveArchethicKeypair(seed []byte, derivationPath string, index uint8, cur
 	hm := hmac.New(sha512.New, seed)
 	hm.Write(hashedPath)
 	extendedSeed := hm.Sum(nil)
+	extendedSeed = extendedSeed[:32]
 	return GenerateDeterministicKeypair(extendedSeed, curve, KEYCHAIN_ORIGIN_ID)
 }
 
@@ -231,4 +232,33 @@ func DecodeKeychain(binaryInput []byte) *Keychain {
 	}
 
 	return k
+}
+
+func (k Keychain) DeriveAddress(serviceName string, index uint8) []byte {
+	service, ok := k.services[serviceName]
+
+	if !ok {
+		panic("Service doesn't exists in the keychain")
+	}
+	publicKey, _ := DeriveArchethicKeypair(k.seed, service.derivationPath, index, service.curve)
+
+	hashedPublicKey := hash(publicKey, service.hashAlgo)
+	result := make([]byte, 0)
+	result = append(result, byte(service.curve))
+	result = append(result, hashedPublicKey...)
+	return result
+
+}
+
+func (k Keychain) BuildTransaction(transaction TransactionBuilder, serviceName string, index uint8) TransactionBuilder {
+	pubKey, privKey := k.DeriveKeypair(serviceName, index)
+	address := k.DeriveAddress(serviceName, index+1)
+	transaction.SetAddress(address)
+
+	payloadForPreviousSignature := transaction.previousSignaturePayload()
+	previousSignature := Sign(privKey, payloadForPreviousSignature)
+
+	transaction.SetPreviousSignatureAndPreviousPublicKey(previousSignature, pubKey)
+
+	return transaction
 }

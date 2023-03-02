@@ -96,3 +96,41 @@ func TestDecodeKeychain(t *testing.T) {
 	}
 
 }
+
+func TestBuildTransaction(t *testing.T) {
+
+	seed := []byte("seed")
+
+	keychain := Keychain{seed: seed, version: 1, services: map[string]Service{
+		"uco": {
+			derivationPath: "m/650'/0/0",
+			curve:          ED25519,
+			hashAlgo:       SHA256,
+		},
+	}}
+
+	tx := TransactionBuilder{txType: TransferType}
+	tx.AddUcoTransfer(
+		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
+		toUint64(10.0, 8),
+	)
+
+	tx = keychain.BuildTransaction(tx, "uco", 0)
+
+	expectedPreviousPublicKey, _ := keychain.DeriveKeypair("uco", 0)
+	expectedAddress := keychain.DeriveAddress("uco", 1)
+
+	if !reflect.DeepEqual(tx.address, expectedAddress) {
+		t.Errorf("expected address %v, got %v", expectedAddress, tx.address)
+	}
+
+	if !reflect.DeepEqual(tx.previousPublicKey, expectedPreviousPublicKey) {
+		t.Errorf("expected previousPublicKey %v, got %v", expectedPreviousPublicKey, tx.previousPublicKey)
+	}
+
+	test, err := Verify(tx.previousSignature, tx.previousSignaturePayload(), tx.previousPublicKey)
+	if !test {
+		t.Errorf("Error when verifying the previous signature")
+		t.Error(err)
+	}
+}
