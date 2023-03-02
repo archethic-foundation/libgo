@@ -1,6 +1,7 @@
 package archethic
 
 import (
+	"encoding/hex"
 	"math"
 	"reflect"
 	"testing"
@@ -306,31 +307,34 @@ func TestSetAddress(t *testing.T) {
 	}
 }
 
-// func TestBuild(t *testing.T) {
+func TestBuild(t *testing.T) {
 
-// 	tx := TransactionBuilder{txType: TransferType}
-// 	tx.AddUcoTransfer(
-// 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-// 		toUint64(10.0, 8),
-// 	)
-// 	tx.Build([]byte("seed"), 0, ED25519, SHA256)
+	tx := TransactionBuilder{txType: TransferType}
 
-// 	expectedAddress := []byte("00001ff1733caa91336976ee7cef5aff6bb26c7682213b8e6770ab82272f966dac35")
-// 	expectedPreviousPublicKey := []byte("000161d6cd8da68207bd01198909c139c130a3df3a8bd20f4bacb123c46354ccd52c")
+	ucoAddress, _ := hex.DecodeString("00001ff1733caa91336976ee7cef5aff6bb26c7682213b8e6770ab82272f966dac35")
 
-// 	if !reflect.DeepEqual(tx.address, expectedAddress) {
-// 		t.Errorf("expected address %v, got %v", expectedAddress, tx.address)
-// 	}
+	tx.AddUcoTransfer(
+		ucoAddress,
+		toUint64(10.0, 8),
+	)
+	tx.Build([]byte("seed"), 0, ED25519, SHA256)
 
-// 	if !reflect.DeepEqual(tx.previousPublicKey, expectedPreviousPublicKey) {
-// 		t.Errorf("expected previousPublicKey %v, got %v", expectedPreviousPublicKey, tx.previousPublicKey)
-// 	}
+	expectedAddress, _ := hex.DecodeString("00001ff1733caa91336976ee7cef5aff6bb26c7682213b8e6770ab82272f966dac35")
+	expectedPreviousPublicKey, _ := hex.DecodeString("000161d6cd8da68207bd01198909c139c130a3df3a8bd20f4bacb123c46354ccd52c")
 
-// 	test, _ := Verify(tx.previousSignature, tx.previousSignaturePayload(), tx.previousPublicKey)
-// 	if !test {
-// 		t.Errorf("Error when verifying the previous signature")
-// 	}
-// }
+	if !reflect.DeepEqual(tx.address, expectedAddress) {
+		t.Errorf("expected address %v, got %v", expectedAddress, tx.address)
+	}
+
+	if !reflect.DeepEqual(tx.previousPublicKey, expectedPreviousPublicKey) {
+		t.Errorf("expected previousPublicKey %v, got %v", expectedPreviousPublicKey, tx.previousPublicKey)
+	}
+
+	test, _ := Verify(tx.previousSignature, tx.previousSignaturePayload(), tx.previousPublicKey)
+	if !test {
+		t.Errorf("Error when verifying the previous signature")
+	}
+}
 
 func TestOriginSignaturePayload(t *testing.T) {
 	code := `
