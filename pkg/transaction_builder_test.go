@@ -2,7 +2,6 @@ package archethic
 
 import (
 	"encoding/hex"
-	"math"
 	"reflect"
 	"testing"
 )
@@ -11,43 +10,43 @@ func TestSetType(t *testing.T) {
 	tx := TransactionBuilder{}
 	tx.SetType(TransferType)
 	if tx.txType != TransferType {
-		t.Errorf("expected tx type to be TransferType, got %d", tx.txType)
+		t.Errorf("expected tx type to be TransferType, got %v", tx.txType)
 	}
 
 	tx = TransactionBuilder{}
 	tx.SetType(ContractType)
 	if tx.txType != ContractType {
-		t.Errorf("expected tx type to be KeychainAccessType, got %d", tx.txType)
+		t.Errorf("expected tx type to be KeychainAccessType, got %v", tx.txType)
 	}
 
 	tx = TransactionBuilder{}
 	tx.SetType(DataType)
 	if tx.txType != DataType {
-		t.Errorf("expected tx type to be KeychainType, got %d", tx.txType)
+		t.Errorf("expected tx type to be KeychainType, got %v", tx.txType)
 	}
 
 	tx = TransactionBuilder{}
-	tx.SetType(NFTType)
-	if tx.txType != NFTType {
-		t.Errorf("expected tx type to be NFTType, got %d", tx.txType)
+	tx.SetType(TokenType)
+	if tx.txType != TokenType {
+		t.Errorf("expected tx type to be TokenType, got %v", tx.txType)
 	}
 
 	tx = TransactionBuilder{}
 	tx.SetType(HostingType)
 	if tx.txType != HostingType {
-		t.Errorf("expected tx type to be HostingType, got %d", tx.txType)
+		t.Errorf("expected tx type to be HostingType, got %v", tx.txType)
 	}
 
 	tx = TransactionBuilder{}
 	tx.SetType(CodeProposalType)
 	if tx.txType != CodeProposalType {
-		t.Errorf("expected tx type to be CodeProposalType, got %d", tx.txType)
+		t.Errorf("expected tx type to be CodeProposalType, got %v", tx.txType)
 	}
 
 	tx = TransactionBuilder{}
 	tx.SetType(CodeApprovalType)
 	if tx.txType != CodeApprovalType {
-		t.Errorf("expected tx type to be CodeApprovalType, got %d", tx.txType)
+		t.Errorf("expected tx type to be CodeApprovalType, got %v", tx.txType)
 	}
 }
 
@@ -105,7 +104,7 @@ func TestAddUCOTransfer(t *testing.T) {
 	tx := TransactionBuilder{txType: TransferType}
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-		toUint64(10.03, 8),
+		ToUint64(10.03, 8),
 	)
 
 	if len(tx.data.ledger.uco.transfers) != 1 {
@@ -117,21 +116,10 @@ func TestAddUCOTransfer(t *testing.T) {
 		t.Errorf("expected to address %v, got %v", expectedTo, tx.data.ledger.uco.transfers[0].to)
 	}
 
-	expectedAmount := toUint64(10.03, 8)
+	expectedAmount := ToUint64(10.03, 8)
 	if tx.data.ledger.uco.transfers[0].amount != expectedAmount {
 		t.Errorf("expected amount %d, got %d", expectedAmount, tx.data.ledger.uco.transfers[0].amount)
 	}
-}
-
-func toUint64(number float64, decimals int) uint64 {
-	if decimals < 0 {
-		panic("'decimals' must be a non-negative integer")
-	}
-
-	factor := math.Pow10(decimals)
-	result := uint64(number * factor)
-
-	return result
 }
 
 func TestAddTokenTransfer(t *testing.T) {
@@ -140,7 +128,7 @@ func TestAddTokenTransfer(t *testing.T) {
 	tx.AddTokenTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-		toUint64(10.03, 8),
+		ToUint64(10.03, 8),
 		1,
 	)
 
@@ -158,7 +146,7 @@ func TestAddTokenTransfer(t *testing.T) {
 		t.Errorf("expected to token address %v, got %v", expectedTo, tx.data.ledger.token.transfers[0].tokenAddress)
 	}
 
-	expectedAmount := toUint64(10.03, 8)
+	expectedAmount := ToUint64(10.03, 8)
 	if tx.data.ledger.token.transfers[0].amount != expectedAmount {
 		t.Errorf("expected amount %d, got %d", expectedAmount, tx.data.ledger.token.transfers[0].amount)
 	}
@@ -195,11 +183,11 @@ func TestPreviousSignaturePayload(t *testing.T) {
 
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-		toUint64(0.202, 8))
+		ToUint64(0.202, 8))
 	tx.AddTokenTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
-		toUint64(100, 8),
+		ToUint64(100, 8),
 		1)
 	tx.SetCode(code)
 	tx.SetContent(content)
@@ -254,7 +242,7 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	// Nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(toUint64(0.202, 8))...)
+	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(0.202, 8))...)
 
 	// Nb of byte to encode nb of Token transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
@@ -263,7 +251,7 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(toUint64(100, 8))...)
+	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(100, 8))...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
@@ -315,7 +303,7 @@ func TestBuild(t *testing.T) {
 
 	tx.AddUcoTransfer(
 		ucoAddress,
-		toUint64(10.0, 8),
+		ToUint64(10.0, 8),
 	)
 	tx.Build([]byte("seed"), 0, ED25519, SHA256)
 
@@ -368,11 +356,11 @@ func TestOriginSignaturePayload(t *testing.T) {
 
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-		toUint64(0.202, 8))
+		ToUint64(0.202, 8))
 	tx.AddTokenTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
-		toUint64(100, 8),
+		ToUint64(100, 8),
 		1)
 	tx.SetCode(code)
 	tx.SetContent(content)
@@ -428,7 +416,7 @@ func TestOriginSignaturePayload(t *testing.T) {
 	// Nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(toUint64(0.202, 8))...)
+	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(0.202, 8))...)
 
 	// Nb of byte to encode nb of Token transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
@@ -437,7 +425,7 @@ func TestOriginSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(toUint64(100, 8))...)
+	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(100, 8))...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 

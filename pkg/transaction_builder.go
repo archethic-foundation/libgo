@@ -2,21 +2,30 @@ package archethic
 
 import (
 	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"math"
 )
 
-type TransactionType uint8
+// type TransactionType uint8
 
-const (
-	KeychainType       TransactionType = 255
-	KeychainAccessType TransactionType = 254
-	TransferType       TransactionType = 253
-	NFTType            TransactionType = 252
-	HostingType        TransactionType = 251
-	DataType           TransactionType = 250
-	ContractType       TransactionType = 249
-	CodeProposalType   TransactionType = 5
-	CodeApprovalType   TransactionType = 6
-	Version            uint32          = 1
+type TransactionType struct {
+	valueString string
+	valueByte   uint8
+}
+
+const Version uint32 = 1
+
+var (
+	KeychainAccessType TransactionType = TransactionType{"keychain_access", 254}
+	KeychainType       TransactionType = TransactionType{"keychain", 255}
+	TransferType       TransactionType = TransactionType{"transfer", 253}
+	HostingType        TransactionType = TransactionType{"hosting", 252}
+	TokenType          TransactionType = TransactionType{"token", 251}
+	DataType           TransactionType = TransactionType{"data", 250}
+	ContractType       TransactionType = TransactionType{"contract", 249}
+	CodeProposalType   TransactionType = TransactionType{"code_proposal", 5}
+	CodeApprovalType   TransactionType = TransactionType{"code_approval", 6}
 )
 
 type TransactionBuilder struct {
@@ -305,7 +314,7 @@ func (t TransactionBuilder) previousSignaturePayload() []byte {
 
 	buf = append(buf, versionBytes...)
 	buf = append(buf, t.address...)
-	buf = append(buf, byte(t.txType))
+	buf = append(buf, t.txType.valueByte)
 	buf = append(buf, t.data.toBytes()...)
 
 	return buf
@@ -400,4 +409,79 @@ func convertToMinimumBytes(length int) (int, []byte) {
 		binary.LittleEndian.PutUint64(bytes, uint64(length))
 	}
 	return size, bytes
+}
+
+func ToUint64(number float64, decimals int) uint64 {
+	if decimals < 0 {
+		panic("'decimals' must be a non-negative integer")
+	}
+
+	factor := math.Pow10(decimals)
+	result := uint64(number * factor)
+
+	return result
+}
+
+func (t *TransactionBuilder) ToJSON() ([]byte, error) {
+	ownerships := make([]map[string]interface{}, len(t.data.ownerships))
+	for i, o := range t.data.ownerships {
+		authorizedKeys := make([]map[string]string, len(o.authorizedKeys))
+		for j, a := range o.authorizedKeys {
+			authorizedKeys[j] = map[string]string{
+				"publicKey":          hex.EncodeToString(a.publicKey),
+				"encryptedSecretKey": hex.EncodeToString(a.encryptedSecretKey),
+			}
+		}
+		ownerships[i] = map[string]interface{}{
+			"secret":         hex.EncodeToString(o.secret),
+			"authorizedKeys": authorizedKeys,
+		}
+	}
+	ucoTransfers := make([]map[string]interface{}, len(t.data.ledger.uco.transfers))
+	for i, t := range t.data.ledger.uco.transfers {
+		ucoTransfers[i] = map[string]interface{}{
+			"to":     hex.EncodeToString(t.to),
+			"amount": t.amount,
+		}
+	}
+	tokenTransfers := make([]map[string]interface{}, len(t.data.ledger.token.transfers))
+	for i, t := range t.data.ledger.token.transfers {
+		tokenTransfers[i] = map[string]interface{}{
+			"to":           hex.EncodeToString(t.to),
+			"amount":       t.amount,
+			"tokenAddress": hex.EncodeToString(t.tokenAddress),
+			"tokenId":      t.tokenId,
+		}
+	}
+	recipients := make([]string, len(t.data.recipients))
+	for i, r := range t.data.recipients {
+		recipients[i] = hex.EncodeToString(r)
+	}
+	data := map[string]interface{}{
+		"content":    hex.EncodeToString(t.data.content),
+		"code":       string(t.data.code),
+		"ownerships": ownerships,
+		"ledger": map[string]interface{}{
+			"uco": map[string]interface{}{
+				"transfers": ucoTransfers,
+			},
+			"token": map[string]interface{}{
+				"transfers": tokenTransfers,
+			},
+		},
+		"recipients": recipients,
+	}
+	m := map[string]interface{}{
+		"version":           t.version,
+		"address":           hex.EncodeToString(t.address),
+		"type":              t.txType.valueString,
+		"data":              data,
+		"previousPublicKey": hex.EncodeToString(t.previousPublicKey),
+		"previousSignature": hex.EncodeToString(t.previousSignature),
+		"originSignature":   nil,
+	}
+	if t.originSignature != nil {
+		m["originSignature"] = hex.EncodeToString(t.originSignature)
+	}
+	return json.Marshal(m)
 }

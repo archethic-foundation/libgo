@@ -112,7 +112,7 @@ func TestBuildTransaction(t *testing.T) {
 	tx := TransactionBuilder{txType: TransferType}
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-		toUint64(10.0, 8),
+		ToUint64(10.0, 8),
 	)
 
 	tx = keychain.BuildTransaction(tx, "uco", 0)
