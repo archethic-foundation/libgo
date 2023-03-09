@@ -3,13 +3,17 @@ package archethic
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
+	"sync"
 
 	"github.com/hasura/go-graphql-client"
+	"github.com/nshafer/phx"
 )
 
 type Address string
@@ -81,6 +85,18 @@ type BalanceGQL struct {
 		Amount  int
 		TokenId int
 	}
+}
+
+type TransactionConfirmedGQL struct {
+	NbConfirmations  int
+	MaxConfirmations int
+}
+
+type ErrorContext string
+
+type TransactionErrorGQL struct {
+	Context ErrorContext
+	Reason  string
 }
 
 type APIClient struct {
@@ -171,20 +187,27 @@ func (c *APIClient) GetTransactionFee(tx *TransactionBuilder) Fee {
 
 func (c *APIClient) SendTransaction(tx *TransactionBuilder) {
 
-	//TODO: implement the connection to the 2 graphql subscriptions
-	// subscription {
-	// 	transactionConfirmed(address: "${address}") {
-	// 	  nbConfirmations,
-	// 	  maxConfirmations
-	// 	}
-	//   }
-	// 	subscription {
-	// 	  transactionError(address: "${address}") {
-	// 		context,
-	// 		reason
-	// 	  }
-	// 	}
-	// BUT... same problem with oracle update (we don't have the phoenix channel / absinthe payload)
+	done := make(chan bool)
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go c.SubscribeTransactionConfirmed(hex.EncodeToString(tx.address), func() {
+		wg.Done()
+	}, func(transactionConfirmed TransactionConfirmedGQL) {
+		log.Println("Transaction is confirmed")
+		log.Println(transactionConfirmed)
+		done <- true
+	})
+
+	go c.SubscribeTransactionError(hex.EncodeToString(tx.address), func() {
+		wg.Done()
+	}, func(transactionError TransactionErrorGQL) {
+		log.Println("Error during transaction")
+		log.Println(transactionError)
+		done <- true
+	})
+
+	wg.Wait()
 
 	payload, err := tx.ToJSON()
 	if err != nil {
@@ -206,6 +229,7 @@ func (c *APIClient) SendTransaction(tx *TransactionBuilder) {
 		panic(err)
 	}
 	fmt.Printf("request body: %s\n", respBody)
+	<-done
 }
 
 func (c *APIClient) GetTransactionOwnerships(address string) OwnershipsGQL {
@@ -304,4 +328,200 @@ func (c *APIClient) GetBalance(address string) BalanceGQL {
 		panic(err)
 	}
 	return query.Balance
+}
+
+func (c *APIClient) SubscribeToOracleUpdates(handler func(OracleDataWithTimestampGQL)) {
+	query := `subscription{
+				oracleUpdate{
+					services{
+						uco {eur usd}
+					}
+					timestamp
+				}
+			}`
+	graphqlSubscription(c.wsUrl, query, nil, nil, func(data map[string]interface{}) {
+		var response struct {
+			OracleUpdate OracleDataWithTimestampGQL
+		}
+
+		jsonStr, err := json.Marshal(data)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if err := json.Unmarshal(jsonStr, &response); err != nil {
+			fmt.Println(err)
+		}
+
+		handler(response.OracleUpdate)
+	})
+}
+
+func (c *APIClient) SubscribeTransactionError(transactionAddress string, readyHandler func(), handler func(TransactionErrorGQL)) {
+
+	query := `subscription ($address: Address!){
+		transactionError(address: $address) {
+			context
+			reason
+		}
+	}`
+	variables := make(map[string]string)
+	variables["address"] = transactionAddress
+
+	graphqlSubscription(c.wsUrl, query, variables, readyHandler, func(data map[string]interface{}) {
+		var response struct {
+			TransactionError TransactionErrorGQL
+		}
+
+		jsonStr, err := json.Marshal(data)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if err := json.Unmarshal(jsonStr, &response); err != nil {
+			fmt.Println(err)
+		}
+
+		handler(response.TransactionError)
+	})
+}
+
+func (c *APIClient) SubscribeTransactionConfirmed(transactionAddress string, readyHandler func(), handler func(TransactionConfirmedGQL)) {
+
+	query := `subscription ($address: Address!){
+		transactionConfirmed(address: $address) {
+			nbConfirmations
+			maxConfirmations
+		}
+	}`
+	variables := make(map[string]string)
+	variables["address"] = transactionAddress
+
+	graphqlSubscription(c.wsUrl, query, variables, readyHandler, func(data map[string]interface{}) {
+		var response struct {
+			TransactionConfirmed TransactionConfirmedGQL
+		}
+
+		jsonStr, err := json.Marshal(data)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if err := json.Unmarshal(jsonStr, &response); err != nil {
+			fmt.Println(err)
+		}
+
+		handler(response.TransactionConfirmed)
+	})
+}
+
+func graphqlSubscription(wsUrl, query string, variables map[string]string, readyHandler func(), handler func(map[string]interface{})) {
+	endPoint, _ := url.Parse(wsUrl)
+
+	// Create a new phx.Socket
+	socket := phx.NewSocket(endPoint)
+
+	// Wait for the socket to connect before continuing. If it's not able to, it will keep
+	// retrying forever.
+	cont := make(chan bool)
+	socket.OnOpen(func() {
+		cont <- true
+	})
+
+	// Tell the socket to connect (or start retrying until it can connect)
+	err := socket.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Wait for the connection
+	<-cont
+
+	// Create a phx.Channel to connect to the default '__absinthe__:control' channel with no params
+	channel := socket.Channel("__absinthe__:control", nil)
+
+	//TODO: implement hearbeat
+
+	// Join the channel. A phx.Push is returned which can be used to bind to replies and errors
+	join, err := channel.Join()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Listen for a response and only continue once we know we're joined
+	join.Receive("ok", func(response any) {
+		log.Println("Joined channel:", channel.Topic(), response)
+		cont <- true
+	})
+	join.Receive("error", func(response any) {
+		log.Println("Join error", response)
+	})
+
+	// wait to be joined
+	<-cont
+
+	payload := make(map[string]any)
+	payload["query"] = query
+	if variables != nil {
+		payload["variables"] = variables
+	}
+
+	_, err = channel.Push("doc", payload)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	subscriptionID := ""
+	channel.On("phx_reply", func(data interface{}) {
+		dataMap, ok := data.(map[string]interface{})
+		if !ok {
+			log.Fatalf("'phx_reply' error to parse data: %s", data)
+		}
+
+		response, ok := dataMap["response"].(map[string]interface{})
+		if !ok {
+			log.Fatalf("'phx_reply' error to parse response: %s", dataMap)
+		}
+
+		subscriptionID, ok = response["subscriptionId"].(string)
+		if !ok {
+			log.Fatalf("'phx_reply' error to parse subscriptionID: %s", response)
+		}
+
+		if subscriptionID != "" {
+			log.Printf("SubscriptionID: %s", subscriptionID)
+			cont <- true
+		}
+	})
+
+	<-cont
+
+	socket.OnMessage(func(message phx.Message) {
+		if message.Topic == subscriptionID && message.Event == "subscription:data" {
+			payload, ok := message.Payload.(map[string]interface{})
+			if !ok {
+				log.Fatalf("Message received, error to parse payload: %s", message.Payload)
+			}
+			result, ok := payload["result"].(map[string]interface{})
+			if !ok {
+				log.Fatalf("Message received, error to parse result %s", payload)
+			}
+			data, ok := result["data"].(map[string]interface{})
+			if !ok {
+				log.Fatalf("Message received, error to parse data %s", result)
+			}
+
+			handler(data)
+
+			cont <- true
+		}
+	})
+
+	if readyHandler != nil {
+		readyHandler()
+	}
+	<-cont
+
+	// Now we will block forever, hit ctrl+c to exit
+	select {}
 }

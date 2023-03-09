@@ -50,10 +50,10 @@ func (t TransactionData) toBytes() []byte {
 	buf := make([]byte, 0)
 
 	// Encode code
-	buf = appendSizeAndContent(buf, t.code, 32)
+	buf = appendSizeAndContent(buf, t.code, 32, binary.LittleEndian)
 
 	// Encode content
-	buf = appendSizeAndContent(buf, t.content, 32)
+	buf = appendSizeAndContent(buf, t.content, 32, binary.LittleEndian)
 
 	// Encode ownerships
 	buf = append(buf, t.ownershipsBytes()...)
@@ -66,7 +66,7 @@ func (t TransactionData) toBytes() []byte {
 	for i := 0; i < len(t.recipients); i++ {
 		recipientsBytes = append(recipientsBytes, t.recipients[i]...)
 	}
-	size, recipientSize := convertToMinimumBytes(len(t.ownerships))
+	size, recipientSize := convertToMinimumBytes(len(t.recipients))
 	buf = append(buf, byte(size))
 	buf = append(buf, recipientSize...)
 
@@ -185,7 +185,8 @@ type Ownership struct {
 func (o Ownership) toBytes() []byte {
 	buf := make([]byte, 0)
 
-	buf = appendSizeAndContent(buf, o.secret, 32)
+	buf = appendSizeAndContent(buf, o.secret, 32, binary.BigEndian)
+
 
 	authorizedKeysBuf := make([]byte, 0)
 	for j := 0; j < len(o.authorizedKeys); j++ {
@@ -297,6 +298,7 @@ func (t *TransactionBuilder) Build(seed []byte, index uint32, curve Curve, hashA
 	address := DeriveAddress(seed, index+1, curve, hashAlgo)
 
 	t.address = address
+	t.previousPublicKey = publicKey
 	t.previousSignature = Sign(privateKey, t.previousSignaturePayload())
 	t.previousPublicKey = publicKey
 }
@@ -308,7 +310,7 @@ func (t *TransactionBuilder) OriginSign(originPrivateKey []byte) {
 func (t TransactionBuilder) previousSignaturePayload() []byte {
 	versionBytes := []byte{0, 0, 0, 0}
 
-	binary.LittleEndian.PutUint32(versionBytes, t.version)
+	binary.BigEndian.PutUint32(versionBytes, t.version)
 
 	buf := make([]byte, 0)
 
@@ -328,19 +330,19 @@ func (tx *TransactionBuilder) SetPreviousSignatureAndPreviousPublicKey(prevSign 
 func (t TransactionBuilder) originSignaturePayload() []byte {
 	buf := make([]byte, 0)
 	buf = append(buf, t.previousPublicKey...)
-	buf = appendSizeAndContent(buf, t.previousSignature, 8)
+	buf = appendSizeAndContent(buf, t.previousSignature, 8, binary.LittleEndian)
 
 	return append(t.previousSignaturePayload(), buf...)
 }
 
-func appendSizeAndContent(buf []byte, input []byte, bitSize int) []byte {
+func appendSizeAndContent(buf []byte, input []byte, bitSize int, order binary.ByteOrder) []byte {
 	switch bitSize {
 	case 8:
 		buf = append(buf, byte(len(input)))
 	case 32:
-		buf = append(buf, EncodeInt32(uint32(len(input)))...)
+		buf = append(buf, EncodeInt32(uint32(len(input)), order)...)
 	case 64:
-		buf = append(buf, EncodeInt64(uint64(len(input)))...)
+		buf = append(buf, EncodeInt64(uint64(len(input)), order)...)
 	}
 	buf = append(buf, input...)
 	return buf

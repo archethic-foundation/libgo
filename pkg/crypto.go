@@ -455,14 +455,14 @@ func AesDecrypt(cipherText, key []byte) []byte {
 	return aesAuthDecrypt(encrypted, key, iv)
 }
 
-func EncodeInt32(number uint32) []byte {
+func EncodeInt32(number uint32, order binary.ByteOrder) []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, number)
+	binary.Write(buf, order, number)
 	return buf.Bytes()
 }
 
-func EncodeInt64(number uint64) []byte {
+func EncodeInt64(number uint64, order binary.ByteOrder) []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, number)
+	binary.Write(buf, order, number)
 	return buf.Bytes()
 }

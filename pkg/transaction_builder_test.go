@@ -1,6 +1,7 @@
 package archethic
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"reflect"
 	"testing"
@@ -204,16 +205,16 @@ func TestPreviousSignaturePayload(t *testing.T) {
 
 	expectedBinary := make([]byte, 0)
 	// Version
-	expectedBinary = append(expectedBinary, EncodeInt32(1)...)
+	expectedBinary = append(expectedBinary, EncodeInt32(1, binary.LittleEndian)...)
 	expectedBinary = append(expectedBinary, tx.address...)
 	expectedBinary = append(expectedBinary, []byte{253}...)
 
 	// Code size
-	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(code)))...)
+	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(code)), binary.LittleEndian)...)
 	expectedBinary = append(expectedBinary, []byte(code)...)
 
 	// Content size
-	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(content)))...)
+	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(content)), binary.LittleEndian)...)
 	expectedBinary = append(expectedBinary, []byte(content)...)
 
 	// Nb of byte to encode nb of ownerships
@@ -223,7 +224,7 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
 	// Secret size
-	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(secret)))...)
+	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(secret)), binary.LittleEndian)...)
 	expectedBinary = append(expectedBinary, []byte(secret)...)
 
 	// Nb of byte to encode nb of authorized key
@@ -242,7 +243,7 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	// Nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(0.202, 8))...)
+	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(0.202, 8), binary.LittleEndian)...)
 
 	// Nb of byte to encode nb of Token transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
@@ -251,7 +252,7 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(100, 8))...)
+	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(100, 8), binary.LittleEndian)...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
@@ -376,16 +377,16 @@ func TestOriginSignaturePayload(t *testing.T) {
 
 	expectedBinary := make([]byte, 0)
 	// Version
-	expectedBinary = append(expectedBinary, EncodeInt32(1)...)
+	expectedBinary = append(expectedBinary, EncodeInt32(1, binary.LittleEndian)...)
 	expectedBinary = append(expectedBinary, tx.address...)
 	expectedBinary = append(expectedBinary, []byte{253}...)
 
 	// Code size
-	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(code)))...)
+	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(code)), binary.LittleEndian)...)
 	expectedBinary = append(expectedBinary, []byte(code)...)
 
 	// Content size
-	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(content)))...)
+	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(content)), binary.LittleEndian)...)
 	expectedBinary = append(expectedBinary, []byte(content)...)
 
 	// Nb of byte to encode nb of ownerships
@@ -395,7 +396,7 @@ func TestOriginSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
 	// Secret size
-	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(secret)))...)
+	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(secret)), binary.LittleEndian)...)
 	expectedBinary = append(expectedBinary, []byte(secret)...)
 
 	// Nb of byte to encode nb of authorized key
@@ -416,7 +417,7 @@ func TestOriginSignaturePayload(t *testing.T) {
 	// Nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(0.202, 8))...)
+	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(0.202, 8), binary.LittleEndian)...)
 
 	// Nb of byte to encode nb of Token transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
@@ -425,7 +426,7 @@ func TestOriginSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(100, 8))...)
+	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(100, 8), binary.LittleEndian)...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
