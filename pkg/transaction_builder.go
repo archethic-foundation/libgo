@@ -50,10 +50,10 @@ func (t TransactionData) toBytes() []byte {
 	buf := make([]byte, 0)
 
 	// Encode code
-	buf = appendSizeAndContent(buf, t.code, 32, binary.LittleEndian)
+	buf = appendSizeAndContent(buf, t.code, 32)
 
 	// Encode content
-	buf = appendSizeAndContent(buf, t.content, 32, binary.LittleEndian)
+	buf = appendSizeAndContent(buf, t.content, 32)
 
 	// Encode ownerships
 	buf = append(buf, t.ownershipsBytes()...)
@@ -129,7 +129,7 @@ func (t UcoTransfer) toBytes() []byte {
 	buf = append(buf, t.to...)
 
 	amountBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(amountBytes, t.amount)
+	binary.BigEndian.PutUint64(amountBytes, t.amount)
 
 	buf = append(buf, amountBytes...)
 	return buf
@@ -167,7 +167,7 @@ func (t TokenTransfer) toBytes() []byte {
 	buf = append(buf, t.to...)
 
 	amountBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(amountBytes, t.amount)
+	binary.BigEndian.PutUint64(amountBytes, t.amount)
 	buf = append(buf, amountBytes...)
 
 	size, tokenIdByte := convertToMinimumBytes(t.tokenId)
@@ -185,8 +185,7 @@ type Ownership struct {
 func (o Ownership) toBytes() []byte {
 	buf := make([]byte, 0)
 
-	buf = appendSizeAndContent(buf, o.secret, 32, binary.BigEndian)
-
+	buf = appendSizeAndContent(buf, o.secret, 32)
 
 	authorizedKeysBuf := make([]byte, 0)
 	for j := 0; j < len(o.authorizedKeys); j++ {
@@ -300,7 +299,6 @@ func (t *TransactionBuilder) Build(seed []byte, index uint32, curve Curve, hashA
 	t.address = address
 	t.previousPublicKey = publicKey
 	t.previousSignature = Sign(privateKey, t.previousSignaturePayload())
-	t.previousPublicKey = publicKey
 }
 
 func (t *TransactionBuilder) OriginSign(originPrivateKey []byte) {
@@ -330,19 +328,19 @@ func (tx *TransactionBuilder) SetPreviousSignatureAndPreviousPublicKey(prevSign 
 func (t TransactionBuilder) originSignaturePayload() []byte {
 	buf := make([]byte, 0)
 	buf = append(buf, t.previousPublicKey...)
-	buf = appendSizeAndContent(buf, t.previousSignature, 8, binary.LittleEndian)
+	buf = appendSizeAndContent(buf, t.previousSignature, 8)
 
 	return append(t.previousSignaturePayload(), buf...)
 }
 
-func appendSizeAndContent(buf []byte, input []byte, bitSize int, order binary.ByteOrder) []byte {
+func appendSizeAndContent(buf []byte, input []byte, bitSize int) []byte {
 	switch bitSize {
 	case 8:
 		buf = append(buf, byte(len(input)))
 	case 32:
-		buf = append(buf, EncodeInt32(uint32(len(input)), order)...)
+		buf = append(buf, EncodeInt32(uint32(len(input)))...)
 	case 64:
-		buf = append(buf, EncodeInt64(uint64(len(input)), order)...)
+		buf = append(buf, EncodeInt64(uint64(len(input)))...)
 	}
 	buf = append(buf, input...)
 	return buf
@@ -379,13 +377,13 @@ func convertToMinimumBytes(length int) (int, []byte) {
 	case 1:
 		bytes[0] = byte(length)
 	case 2:
-		binary.LittleEndian.PutUint16(bytes, uint16(length))
+		binary.BigEndian.PutUint16(bytes, uint16(length))
 	case 3:
 		bytes[0] = byte(length & 0xff)
 		bytes[1] = byte((length >> 8) & 0xff)
 		bytes[2] = byte((length >> 16) & 0xff)
 	case 4:
-		binary.LittleEndian.PutUint32(bytes, uint32(length))
+		binary.BigEndian.PutUint32(bytes, uint32(length))
 	case 5:
 		bytes[0] = byte(length & 0xff)
 		bytes[1] = byte((length >> 8) & 0xff)
@@ -408,7 +406,7 @@ func convertToMinimumBytes(length int) (int, []byte) {
 		bytes[5] = byte((length >> 40) & 0xff)
 		bytes[6] = byte((length >> 48) & 0xff)
 	default:
-		binary.LittleEndian.PutUint64(bytes, uint64(length))
+		binary.BigEndian.PutUint64(bytes, uint64(length))
 	}
 	return size, bytes
 }

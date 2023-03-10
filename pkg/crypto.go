@@ -167,11 +167,11 @@ func Sign(privateKey []byte, data []byte) []byte {
 	pvKeyBytes := make([]byte, byteReader.Len())
 	byteReader.Read(pvKeyBytes)
 
-	sha256Hash := sha256.Sum256(data)
 	switch Curve(curve) {
 	case ED25519:
-		return ed25519.Sign(pvKeyBytes, sha256Hash[:])
+		return ed25519.Sign(pvKeyBytes, data)
 	case P256:
+		sha256Hash := sha256.Sum256(data)
 		curve := elliptic.P256()
 		key := new(ecdsa.PrivateKey)
 		key.D = new(big.Int).SetBytes(pvKeyBytes)
@@ -185,6 +185,7 @@ func Sign(privateKey []byte, data []byte) []byte {
 		}
 		return sig
 	case SECP256K1:
+		sha256Hash := sha256.Sum256(data)
 		privKey, _ := secp256k1.PrivKeyFromBytes(pvKeyBytes)
 		sig, err := privKey.Sign(sha256Hash[:])
 		if err != nil {
@@ -198,14 +199,14 @@ func Sign(privateKey []byte, data []byte) []byte {
 
 func Verify(sig []byte, data []byte, publicKey []byte) (bool, error) {
 
-	sha256Hash := sha256.Sum256(data)
 	curveByte := publicKey[:1]
 	pubByte := publicKey[2:]
 	switch Curve(curveByte[0]) {
 	case ED25519:
 		key := ed25519.PublicKey(pubByte)
-		return ed25519.Verify(key, sha256Hash[:], sig), nil
+		return ed25519.Verify(key, data, sig), nil
 	case P256:
+		sha256Hash := sha256.Sum256(data)
 		curve := elliptic.P256()
 		pubKeyX, pubKeyY := elliptic.Unmarshal(curve, pubByte)
 		if pubKeyX == nil || pubKeyY == nil {
@@ -215,6 +216,7 @@ func Verify(sig []byte, data []byte, publicKey []byte) (bool, error) {
 
 		return ecdsa.VerifyASN1(&publicKey, sha256Hash[:], sig), nil
 	case SECP256K1:
+		sha256Hash := sha256.Sum256(data)
 		signature, err := secp256k1.ParseDERSignature(sig)
 		if err != nil {
 			return false, err
@@ -455,14 +457,14 @@ func AesDecrypt(cipherText, key []byte) []byte {
 	return aesAuthDecrypt(encrypted, key, iv)
 }
 
-func EncodeInt32(number uint32, order binary.ByteOrder) []byte {
+func EncodeInt32(number uint32) []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, order, number)
+	binary.Write(buf, binary.BigEndian, number)
 	return buf.Bytes()
 }
 
-func EncodeInt64(number uint64, order binary.ByteOrder) []byte {
+func EncodeInt64(number uint64) []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, order, number)
+	binary.Write(buf, binary.BigEndian, number)
 	return buf.Bytes()
 }
