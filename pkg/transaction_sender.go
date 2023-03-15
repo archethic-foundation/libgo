@@ -129,8 +129,8 @@ func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmatio
 	if err != nil {
 		panic(err)
 	}
-	transactionFeeUrl := ts.client.baseURL + "/transaction"
-	req, err := http.NewRequest("POST", transactionFeeUrl, bytes.NewReader(payload))
+	transactionUrl := ts.client.baseURL + "/transaction"
+	req, err := http.NewRequest("POST", transactionUrl, bytes.NewReader(payload))
 	if err != nil {
 		panic(err)
 	}

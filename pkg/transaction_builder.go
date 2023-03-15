@@ -9,23 +9,19 @@ import (
 
 // type TransactionType uint8
 
-type TransactionType struct {
-	valueString string
-	valueByte   uint8
-}
+type TransactionType uint8
 
-const Version uint32 = 1
-
-var (
-	KeychainAccessType TransactionType = TransactionType{"keychain_access", 254}
-	KeychainType       TransactionType = TransactionType{"keychain", 255}
-	TransferType       TransactionType = TransactionType{"transfer", 253}
-	HostingType        TransactionType = TransactionType{"hosting", 252}
-	TokenType          TransactionType = TransactionType{"token", 251}
-	DataType           TransactionType = TransactionType{"data", 250}
-	ContractType       TransactionType = TransactionType{"contract", 249}
-	CodeProposalType   TransactionType = TransactionType{"code_proposal", 5}
-	CodeApprovalType   TransactionType = TransactionType{"code_approval", 6}
+const (
+	Version            uint32          = 1
+	KeychainAccessType TransactionType = 254
+	KeychainType       TransactionType = 255
+	TransferType       TransactionType = 253
+	HostingType        TransactionType = 252
+	TokenType          TransactionType = 251
+	DataType           TransactionType = 250
+	ContractType       TransactionType = 249
+	CodeProposalType   TransactionType = 5
+	CodeApprovalType   TransactionType = 6
 )
 
 type TransactionBuilder struct {
@@ -314,7 +310,7 @@ func (t TransactionBuilder) previousSignaturePayload() []byte {
 
 	buf = append(buf, versionBytes...)
 	buf = append(buf, t.address...)
-	buf = append(buf, t.txType.valueByte)
+	buf = append(buf, byte(t.txType))
 	buf = append(buf, t.data.toBytes()...)
 
 	return buf
@@ -474,7 +470,7 @@ func (t *TransactionBuilder) ToJSON() ([]byte, error) {
 	m := map[string]interface{}{
 		"version":           t.version,
 		"address":           hex.EncodeToString(t.address),
-		"type":              t.txType.valueString,
+		"type":              t.txType.String(),
 		"data":              data,
 		"previousPublicKey": hex.EncodeToString(t.previousPublicKey),
 		"previousSignature": hex.EncodeToString(t.previousSignature),
@@ -484,4 +480,28 @@ func (t *TransactionBuilder) ToJSON() ([]byte, error) {
 		m["originSignature"] = hex.EncodeToString(t.originSignature)
 	}
 	return json.Marshal(m)
+}
+
+func (t TransactionType) String() string {
+	switch t {
+	case KeychainAccessType:
+		return "keychain_access"
+	case KeychainType:
+		return "keychain"
+	case TransferType:
+		return "transfer"
+	case HostingType:
+		return "hosting"
+	case TokenType:
+		return "token"
+	case DataType:
+		return "data"
+	case ContractType:
+		return "contract"
+	case CodeProposalType:
+		return "code_proposal"
+	case CodeApprovalType:
+		return "code_approval"
+	}
+	panic("Unknown transaction type")
 }
