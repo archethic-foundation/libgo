@@ -25,44 +25,44 @@ const (
 )
 
 type TransactionBuilder struct {
-	version           uint32
-	address           []byte
-	txType            TransactionType
-	data              TransactionData
-	previousPublicKey []byte
-	previousSignature []byte
-	originSignature   []byte
+	Version           uint32
+	Address           []byte
+	TxType            TransactionType
+	Data              TransactionData
+	PreviousPublicKey []byte
+	PreviousSignature []byte
+	OriginSignature   []byte
 }
 
 type TransactionData struct {
-	content    []byte
-	code       []byte
-	ledger     Ledger
-	ownerships []Ownership
-	recipients [][]byte
+	Content    []byte
+	Code       []byte
+	Ledger     Ledger
+	Ownerships []Ownership
+	Recipients [][]byte
 }
 
 func (t TransactionData) toBytes() []byte {
 	buf := make([]byte, 0)
 
 	// Encode code
-	buf = appendSizeAndContent(buf, t.code, 32)
+	buf = appendSizeAndContent(buf, t.Code, 32)
 
 	// Encode content
-	buf = appendSizeAndContent(buf, t.content, 32)
+	buf = appendSizeAndContent(buf, t.Content, 32)
 
 	// Encode ownerships
 	buf = append(buf, t.ownershipsBytes()...)
 
 	// Encode ledger (UCO + token)
-	buf = append(buf, t.ledger.toBytes()...)
+	buf = append(buf, t.Ledger.toBytes()...)
 
 	// Encode recipients
 	recipientsBytes := make([]byte, 0)
-	for i := 0; i < len(t.recipients); i++ {
-		recipientsBytes = append(recipientsBytes, t.recipients[i]...)
+	for i := 0; i < len(t.Recipients); i++ {
+		recipientsBytes = append(recipientsBytes, t.Recipients[i]...)
 	}
-	size, recipientSize := convertToMinimumBytes(len(t.recipients))
+	size, recipientSize := convertToMinimumBytes(len(t.Recipients))
 	buf = append(buf, byte(size))
 	buf = append(buf, recipientSize...)
 
@@ -74,41 +74,41 @@ func (t TransactionData) toBytes() []byte {
 func (t TransactionData) ownershipsBytes() []byte {
 	buf := make([]byte, 0)
 
-	size, ownerShipSize := convertToMinimumBytes(len(t.ownerships))
+	size, ownerShipSize := convertToMinimumBytes(len(t.Ownerships))
 	buf = append(buf, byte(size))
 	buf = append(buf, ownerShipSize...)
 
-	for i := 0; i < len(t.ownerships); i++ {
-		buf = append(buf, t.ownerships[i].toBytes()...)
+	for i := 0; i < len(t.Ownerships); i++ {
+		buf = append(buf, t.Ownerships[i].toBytes()...)
 	}
 	return buf
 }
 
 type Ledger struct {
-	uco   UcoLedger
-	token TokenLedger
+	Uco   UcoLedger
+	Token TokenLedger
 }
 
 func (l Ledger) toBytes() []byte {
 	buf := make([]byte, 0)
-	buf = append(buf, l.uco.toBytes()...)
-	buf = append(buf, l.token.toBytes()...)
+	buf = append(buf, l.Uco.toBytes()...)
+	buf = append(buf, l.Token.toBytes()...)
 	return buf
 }
 
 type UcoLedger struct {
-	transfers []UcoTransfer
+	Transfers []UcoTransfer
 }
 
 func (l UcoLedger) toBytes() []byte {
 	buf := make([]byte, 0)
 
 	ucoBytes := make([]byte, 0)
-	for i := 0; i < len(l.transfers); i++ {
-		ucoBytes = append(ucoBytes, l.transfers[i].toBytes()...)
+	for i := 0; i < len(l.Transfers); i++ {
+		ucoBytes = append(ucoBytes, l.Transfers[i].toBytes()...)
 	}
 
-	size, transferSize := convertToMinimumBytes(len(l.transfers))
+	size, transferSize := convertToMinimumBytes(len(l.Transfers))
 	buf = append(buf, byte(size))
 	buf = append(buf, transferSize...)
 	buf = append(buf, ucoBytes...)
@@ -116,34 +116,34 @@ func (l UcoLedger) toBytes() []byte {
 }
 
 type UcoTransfer struct {
-	to     []byte
-	amount uint64
+	To     []byte
+	Amount uint64
 }
 
 func (t UcoTransfer) toBytes() []byte {
 	buf := make([]byte, 0)
-	buf = append(buf, t.to...)
+	buf = append(buf, t.To...)
 
 	amountBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(amountBytes, t.amount)
+	binary.BigEndian.PutUint64(amountBytes, t.Amount)
 
 	buf = append(buf, amountBytes...)
 	return buf
 }
 
 type TokenLedger struct {
-	transfers []TokenTransfer
+	Transfers []TokenTransfer
 }
 
 func (l TokenLedger) toBytes() []byte {
 	buf := make([]byte, 0)
 
 	tokenBytes := make([]byte, 0)
-	for i := 0; i < len(l.transfers); i++ {
-		tokenBytes = append(tokenBytes, l.transfers[i].toBytes()...)
+	for i := 0; i < len(l.Transfers); i++ {
+		tokenBytes = append(tokenBytes, l.Transfers[i].toBytes()...)
 	}
 
-	size, transferSize := convertToMinimumBytes(len(l.transfers))
+	size, transferSize := convertToMinimumBytes(len(l.Transfers))
 	buf = append(buf, byte(size))
 	buf = append(buf, transferSize...)
 	buf = append(buf, tokenBytes...)
@@ -151,22 +151,22 @@ func (l TokenLedger) toBytes() []byte {
 }
 
 type TokenTransfer struct {
-	to           []byte
-	tokenAddress []byte
-	tokenId      int
-	amount       uint64
+	To           []byte
+	TokenAddress []byte
+	TokenId      int
+	Amount       uint64
 }
 
 func (t TokenTransfer) toBytes() []byte {
 	buf := make([]byte, 0)
-	buf = append(buf, t.tokenAddress...)
-	buf = append(buf, t.to...)
+	buf = append(buf, t.TokenAddress...)
+	buf = append(buf, t.To...)
 
 	amountBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(amountBytes, t.amount)
+	binary.BigEndian.PutUint64(amountBytes, t.Amount)
 	buf = append(buf, amountBytes...)
 
-	size, tokenIdByte := convertToMinimumBytes(t.tokenId)
+	size, tokenIdByte := convertToMinimumBytes(t.TokenId)
 	buf = append(buf, byte(size))
 	buf = append(buf, tokenIdByte...)
 
@@ -174,23 +174,23 @@ func (t TokenTransfer) toBytes() []byte {
 }
 
 type Ownership struct {
-	secret         []byte
-	authorizedKeys []AuthorizedKey
+	Secret         []byte
+	AuthorizedKeys []AuthorizedKey
 }
 
 func (o Ownership) toBytes() []byte {
 	buf := make([]byte, 0)
 
-	buf = appendSizeAndContent(buf, o.secret, 32)
+	buf = appendSizeAndContent(buf, o.Secret, 32)
 
 	authorizedKeysBuf := make([]byte, 0)
-	for j := 0; j < len(o.authorizedKeys); j++ {
-		authorizedKey := o.authorizedKeys[j]
+	for j := 0; j < len(o.AuthorizedKeys); j++ {
+		authorizedKey := o.AuthorizedKeys[j]
 		authorizedKeysBuf = append(authorizedKeysBuf, authorizedKey.publicKey...)
 		authorizedKeysBuf = append(authorizedKeysBuf, authorizedKey.encryptedSecretKey...)
 	}
 
-	size, authorizedKeySize := convertToMinimumBytes(len(o.authorizedKeys))
+	size, authorizedKeySize := convertToMinimumBytes(len(o.AuthorizedKeys))
 	buf = append(buf, byte(size))
 	buf = append(buf, authorizedKeySize...)
 	buf = append(buf, authorizedKeysBuf...)
@@ -204,61 +204,61 @@ type AuthorizedKey struct {
 }
 
 // New transaction builder instance
-func New(txType TransactionType) *TransactionBuilder {
+func NewTransaction(txType TransactionType) *TransactionBuilder {
 	return &TransactionBuilder{
-		version: Version,
-		txType:  txType,
-		data: TransactionData{
-			code:    []byte{},
-			content: []byte{},
-			ledger: Ledger{
-				uco: UcoLedger{
-					transfers: []UcoTransfer{},
+		Version: Version,
+		TxType:  txType,
+		Data: TransactionData{
+			Code:    []byte{},
+			Content: []byte{},
+			Ledger: Ledger{
+				Uco: UcoLedger{
+					Transfers: []UcoTransfer{},
 				},
-				token: TokenLedger{
-					transfers: []TokenTransfer{},
+				Token: TokenLedger{
+					Transfers: []TokenTransfer{},
 				},
 			},
-			ownerships: []Ownership{},
-			recipients: [][]byte{},
+			Ownerships: []Ownership{},
+			Recipients: [][]byte{},
 		},
 	}
 }
 
 func (t *TransactionBuilder) SetContent(content []byte) {
-	t.data.content = content
+	t.Data.Content = content
 }
 
 func (t *TransactionBuilder) SetCode(code string) {
-	t.data.code = []byte(code)
+	t.Data.Code = []byte(code)
 }
 
 func (t *TransactionBuilder) SetType(txType TransactionType) {
-	t.txType = txType
+	t.TxType = txType
 }
 
 func (t *TransactionBuilder) SetAddress(address []byte) {
-	t.address = address
+	t.Address = address
 }
 
 func (t *TransactionBuilder) AddUcoTransfer(to []byte, amount uint64) {
-	t.data.ledger.uco.transfers = append(t.data.ledger.uco.transfers, UcoTransfer{
-		to:     to,
-		amount: amount,
+	t.Data.Ledger.Uco.Transfers = append(t.Data.Ledger.Uco.Transfers, UcoTransfer{
+		To:     to,
+		Amount: amount,
 	})
 }
 
 func (t *TransactionBuilder) AddTokenTransfer(to []byte, tokenAddress []byte, amount uint64, tokenId int) {
-	t.data.ledger.token.transfers = append(t.data.ledger.token.transfers, TokenTransfer{
-		to:           to,
-		tokenAddress: tokenAddress,
-		amount:       amount,
-		tokenId:      tokenId,
+	t.Data.Ledger.Token.Transfers = append(t.Data.Ledger.Token.Transfers, TokenTransfer{
+		To:           to,
+		TokenAddress: tokenAddress,
+		Amount:       amount,
+		TokenId:      tokenId,
 	})
 }
 
 func (t *TransactionBuilder) AddRecipient(address []byte) {
-	t.data.recipients = append(t.data.recipients, address)
+	t.Data.Recipients = append(t.Data.Recipients, address)
 }
 
 func (t *TransactionBuilder) AddOwnership(secret []byte, authorizedKeys []AuthorizedKey) {
@@ -282,9 +282,9 @@ func (t *TransactionBuilder) AddOwnership(secret []byte, authorizedKeys []Author
 		emptyAcc[string(publicKey)] = encryptedSecretKey
 	}
 
-	t.data.ownerships = append(t.data.ownerships, Ownership{
-		secret:         secret,
-		authorizedKeys: filteredAuthorizedKeys,
+	t.Data.Ownerships = append(t.Data.Ownerships, Ownership{
+		Secret:         secret,
+		AuthorizedKeys: filteredAuthorizedKeys,
 	})
 }
 
@@ -292,39 +292,39 @@ func (t *TransactionBuilder) Build(seed []byte, index uint32, curve Curve, hashA
 	publicKey, privateKey := DeriveKeypair(seed, index, curve)
 	address := DeriveAddress(seed, index+1, curve, hashAlgo)
 
-	t.address = address
-	t.previousPublicKey = publicKey
-	t.previousSignature = Sign(privateKey, t.previousSignaturePayload())
+	t.Address = address
+	t.PreviousPublicKey = publicKey
+	t.PreviousSignature = Sign(privateKey, t.previousSignaturePayload())
 }
 
 func (t *TransactionBuilder) OriginSign(originPrivateKey []byte) {
-	t.originSignature = Sign(originPrivateKey, t.originSignaturePayload())
+	t.OriginSignature = Sign(originPrivateKey, t.OriginSignaturePayload())
 }
 
 func (t TransactionBuilder) previousSignaturePayload() []byte {
 	versionBytes := []byte{0, 0, 0, 0}
 
-	binary.BigEndian.PutUint32(versionBytes, t.version)
+	binary.BigEndian.PutUint32(versionBytes, t.Version)
 
 	buf := make([]byte, 0)
 
 	buf = append(buf, versionBytes...)
-	buf = append(buf, t.address...)
-	buf = append(buf, byte(t.txType))
-	buf = append(buf, t.data.toBytes()...)
+	buf = append(buf, t.Address...)
+	buf = append(buf, byte(t.TxType))
+	buf = append(buf, t.Data.toBytes()...)
 
 	return buf
 }
 
 func (tx *TransactionBuilder) SetPreviousSignatureAndPreviousPublicKey(prevSign []byte, prevPubKey []byte) {
-	tx.previousPublicKey = prevPubKey
-	tx.previousSignature = prevSign
+	tx.PreviousPublicKey = prevPubKey
+	tx.PreviousSignature = prevSign
 }
 
-func (t TransactionBuilder) originSignaturePayload() []byte {
+func (t TransactionBuilder) OriginSignaturePayload() []byte {
 	buf := make([]byte, 0)
-	buf = append(buf, t.previousPublicKey...)
-	buf = appendSizeAndContent(buf, t.previousSignature, 8)
+	buf = append(buf, t.PreviousPublicKey...)
+	buf = appendSizeAndContent(buf, t.PreviousSignature, 8)
 
 	return append(t.previousSignaturePayload(), buf...)
 }
@@ -419,43 +419,43 @@ func ToUint64(number float64, decimals int) uint64 {
 }
 
 func (t *TransactionBuilder) ToJSON() ([]byte, error) {
-	ownerships := make([]map[string]interface{}, len(t.data.ownerships))
-	for i, o := range t.data.ownerships {
-		authorizedKeys := make([]map[string]string, len(o.authorizedKeys))
-		for j, a := range o.authorizedKeys {
+	ownerships := make([]map[string]interface{}, len(t.Data.Ownerships))
+	for i, o := range t.Data.Ownerships {
+		authorizedKeys := make([]map[string]string, len(o.AuthorizedKeys))
+		for j, a := range o.AuthorizedKeys {
 			authorizedKeys[j] = map[string]string{
 				"publicKey":          hex.EncodeToString(a.publicKey),
 				"encryptedSecretKey": hex.EncodeToString(a.encryptedSecretKey),
 			}
 		}
 		ownerships[i] = map[string]interface{}{
-			"secret":         hex.EncodeToString(o.secret),
+			"secret":         hex.EncodeToString(o.Secret),
 			"authorizedKeys": authorizedKeys,
 		}
 	}
-	ucoTransfers := make([]map[string]interface{}, len(t.data.ledger.uco.transfers))
-	for i, t := range t.data.ledger.uco.transfers {
+	ucoTransfers := make([]map[string]interface{}, len(t.Data.Ledger.Uco.Transfers))
+	for i, t := range t.Data.Ledger.Uco.Transfers {
 		ucoTransfers[i] = map[string]interface{}{
-			"to":     hex.EncodeToString(t.to),
-			"amount": t.amount,
+			"to":     hex.EncodeToString(t.To),
+			"amount": t.Amount,
 		}
 	}
-	tokenTransfers := make([]map[string]interface{}, len(t.data.ledger.token.transfers))
-	for i, t := range t.data.ledger.token.transfers {
+	tokenTransfers := make([]map[string]interface{}, len(t.Data.Ledger.Token.Transfers))
+	for i, t := range t.Data.Ledger.Token.Transfers {
 		tokenTransfers[i] = map[string]interface{}{
-			"to":           hex.EncodeToString(t.to),
-			"amount":       t.amount,
-			"tokenAddress": hex.EncodeToString(t.tokenAddress),
-			"tokenId":      t.tokenId,
+			"to":           hex.EncodeToString(t.To),
+			"amount":       t.Amount,
+			"tokenAddress": hex.EncodeToString(t.TokenAddress),
+			"tokenId":      t.TokenId,
 		}
 	}
-	recipients := make([]string, len(t.data.recipients))
-	for i, r := range t.data.recipients {
+	recipients := make([]string, len(t.Data.Recipients))
+	for i, r := range t.Data.Recipients {
 		recipients[i] = hex.EncodeToString(r)
 	}
 	data := map[string]interface{}{
-		"content":    hex.EncodeToString(t.data.content),
-		"code":       string(t.data.code),
+		"content":    hex.EncodeToString(t.Data.Content),
+		"code":       string(t.Data.Code),
 		"ownerships": ownerships,
 		"ledger": map[string]interface{}{
 			"uco": map[string]interface{}{
@@ -468,16 +468,16 @@ func (t *TransactionBuilder) ToJSON() ([]byte, error) {
 		"recipients": recipients,
 	}
 	m := map[string]interface{}{
-		"version":           t.version,
-		"address":           hex.EncodeToString(t.address),
-		"type":              t.txType.String(),
+		"version":           t.Version,
+		"address":           hex.EncodeToString(t.Address),
+		"type":              t.TxType.String(),
 		"data":              data,
-		"previousPublicKey": hex.EncodeToString(t.previousPublicKey),
-		"previousSignature": hex.EncodeToString(t.previousSignature),
+		"previousPublicKey": hex.EncodeToString(t.PreviousPublicKey),
+		"previousSignature": hex.EncodeToString(t.PreviousSignature),
 		"originSignature":   nil,
 	}
-	if t.originSignature != nil {
-		m["originSignature"] = hex.EncodeToString(t.originSignature)
+	if t.OriginSignature != nil {
+		m["originSignature"] = hex.EncodeToString(t.OriginSignature)
 	}
 	return json.Marshal(m)
 }

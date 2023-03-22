@@ -109,7 +109,7 @@ func TestBuildTransaction(t *testing.T) {
 		},
 	}}
 
-	tx := TransactionBuilder{txType: TransferType}
+	tx := TransactionBuilder{TxType: TransferType}
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		ToUint64(10.0, 8),
@@ -120,15 +120,15 @@ func TestBuildTransaction(t *testing.T) {
 	expectedPreviousPublicKey, _ := keychain.DeriveKeypair("uco", 0)
 	expectedAddress := keychain.DeriveAddress("uco", 1)
 
-	if !reflect.DeepEqual(tx.address, expectedAddress) {
-		t.Errorf("expected address %v, got %v", expectedAddress, tx.address)
+	if !reflect.DeepEqual(tx.Address, expectedAddress) {
+		t.Errorf("expected address %v, got %v", expectedAddress, tx.Address)
 	}
 
-	if !reflect.DeepEqual(tx.previousPublicKey, expectedPreviousPublicKey) {
-		t.Errorf("expected previousPublicKey %v, got %v", expectedPreviousPublicKey, tx.previousPublicKey)
+	if !reflect.DeepEqual(tx.PreviousPublicKey, expectedPreviousPublicKey) {
+		t.Errorf("expected previousPublicKey %v, got %v", expectedPreviousPublicKey, tx.PreviousPublicKey)
 	}
 
-	test, err := Verify(tx.previousSignature, tx.previousSignaturePayload(), tx.previousPublicKey)
+	test, err := Verify(tx.PreviousSignature, tx.previousSignaturePayload(), tx.PreviousPublicKey)
 	if !test {
 		t.Errorf("Error when verifying the previous signature")
 		t.Error(err)

@@ -104,7 +104,7 @@ func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmatio
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go ts.SubscribeTransactionConfirmed(hex.EncodeToString(tx.address), func() {
+	go ts.SubscribeTransactionConfirmed(hex.EncodeToString(tx.Address), func() {
 		wg.Done()
 	}, func(transactionConfirmed TransactionConfirmedGQL) {
 		log.Println("Transaction is confirmed")
@@ -114,7 +114,7 @@ func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmatio
 		}
 	})
 
-	go ts.SubscribeTransactionError(hex.EncodeToString(tx.address), func() {
+	go ts.SubscribeTransactionError(hex.EncodeToString(tx.Address), func() {
 		wg.Done()
 	}, func(transactionError TransactionErrorGQL) {
 		log.Println("Error during transaction")
