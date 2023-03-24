@@ -1,9 +1,9 @@
 package archethic
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"strings"
 )
 
 func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) TransactionBuilder {
@@ -23,7 +23,6 @@ func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) Transact
 
 	tx := TransactionBuilder{}
 	tx.SetType(KeychainType)
-	keychain.ToDID()
 	tx.SetContent(keychain.ToDID().ToJSON())
 	tx.AddOwnership(AesEncrypt(keychain.toBytes(), aesKey), authorizedKeys)
 	tx.Build(seed, 0, ED25519, SHA256)
@@ -61,24 +60,25 @@ func GetKeychain(seed []byte, client APIClient) *Keychain {
 	accessSecret := accessOwnerships[0].Secret
 	accessAuthorizedKeys := accessOwnerships[0].AuthorizedPublicKeys
 
-	var accessSecretKey Hex
-	publicKeyHex := strings.ToUpper(hex.EncodeToString(publicKey))
+	var accessSecretKey []byte
 	for _, authKey := range accessAuthorizedKeys {
-		if strings.ToUpper(string(authKey.PublicKey)) == publicKeyHex {
-			accessSecretKey = authKey.EncryptedSecretKey
+		publicKeyBytes, err := hex.DecodeString(string(authKey.PublicKey))
+		if err != nil {
+			panic(err)
 		}
-	}
-
-	accessSecretKeyBytes, err := hex.DecodeString(string(accessSecretKey))
-	if err != nil {
-		panic(err)
+		if bytes.Equal(publicKeyBytes, publicKey) {
+			accessSecretKey, err = hex.DecodeString(string(authKey.EncryptedSecretKey))
+			if err != nil {
+				panic(err)
+			}
+		}
 	}
 
 	accessSecretBytes, err := hex.DecodeString(string(accessSecret))
 	if err != nil {
 		panic(err)
 	}
-	accessKey := EcDecrypt(accessSecretKeyBytes, privateKey)
+	accessKey := EcDecrypt(accessSecretKey, privateKey)
 	keychainAddress := AesDecrypt(accessSecretBytes, accessKey)
 
 	keychainOwnerships := client.GetTransactionOwnerships(hex.EncodeToString(keychainAddress))
@@ -88,7 +88,11 @@ func GetKeychain(seed []byte, client APIClient) *Keychain {
 
 	var keychainSecretKey Hex
 	for _, authKey := range keychainAuthorizedKeys {
-		if strings.ToUpper(string(authKey.PublicKey)) == publicKeyHex {
+		publicKeyBytes, err := hex.DecodeString(string(authKey.PublicKey))
+		if err != nil {
+			panic(err)
+		}
+		if bytes.Equal(publicKeyBytes, publicKey) {
 			keychainSecretKey = authKey.EncryptedSecretKey
 		}
 	}
