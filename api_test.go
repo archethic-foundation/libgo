@@ -2,6 +2,7 @@ package archethic
 
 import (
 	"bytes"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"reflect"
@@ -207,8 +208,8 @@ func TestGetToken(t *testing.T) {
 	})
 
 	result := client.GetToken("1234")
-	expectedGenesis := "0000D6979F125A91465E29A12F66AE40FA454A2AD6CE3BB40099DBDDFFAF586E195A"
-	if string(result.Genesis) != expectedGenesis {
+	expectedGenesis, _ := hex.DecodeString("0000D6979F125A91465E29A12F66AE40FA454A2AD6CE3BB40099DBDDFFAF586E195A")
+	if !bytes.Equal(result.Genesis, expectedGenesis) {
 		t.Errorf("Error when getting GetToken expected genesis %s but got %s", expectedGenesis, result.Genesis)
 	}
 

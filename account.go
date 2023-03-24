@@ -62,50 +62,25 @@ func GetKeychain(seed []byte, client APIClient) *Keychain {
 
 	var accessSecretKey []byte
 	for _, authKey := range accessAuthorizedKeys {
-		publicKeyBytes, err := hex.DecodeString(string(authKey.PublicKey))
-		if err != nil {
-			panic(err)
-		}
-		if bytes.Equal(publicKeyBytes, publicKey) {
-			accessSecretKey, err = hex.DecodeString(string(authKey.EncryptedSecretKey))
-			if err != nil {
-				panic(err)
-			}
+		if bytes.Equal(authKey.PublicKey, publicKey) {
+			accessSecretKey = authKey.EncryptedSecretKey
 		}
 	}
 
-	accessSecretBytes, err := hex.DecodeString(string(accessSecret))
-	if err != nil {
-		panic(err)
-	}
 	accessKey := EcDecrypt(accessSecretKey, privateKey)
-	keychainAddress := AesDecrypt(accessSecretBytes, accessKey)
+	keychainAddress := AesDecrypt(accessSecret, accessKey)
 
 	keychainOwnerships := client.GetTransactionOwnerships(hex.EncodeToString(keychainAddress))
 
 	keychainSecret := keychainOwnerships[0].Secret
 	keychainAuthorizedKeys := keychainOwnerships[0].AuthorizedPublicKeys
 
-	var keychainSecretKey Hex
+	var keychainSecretKey []byte
 	for _, authKey := range keychainAuthorizedKeys {
-		publicKeyBytes, err := hex.DecodeString(string(authKey.PublicKey))
-		if err != nil {
-			panic(err)
-		}
-		if bytes.Equal(publicKeyBytes, publicKey) {
+		if bytes.Equal(authKey.PublicKey, publicKey) {
 			keychainSecretKey = authKey.EncryptedSecretKey
 		}
 	}
-
-	keychainSecretKeyBytes, err := hex.DecodeString(string(keychainSecretKey))
-	if err != nil {
-		panic(err)
-	}
-
-	keychainSecretBytes, err := hex.DecodeString(string(keychainSecret))
-	if err != nil {
-		panic(err)
-	}
-	keychainKey := EcDecrypt(keychainSecretKeyBytes, privateKey)
-	return DecodeKeychain(AesDecrypt(keychainSecretBytes, keychainKey))
+	keychainKey := EcDecrypt(keychainSecretKey, privateKey)
+	return DecodeKeychain(AesDecrypt(keychainSecret, keychainKey))
 }
