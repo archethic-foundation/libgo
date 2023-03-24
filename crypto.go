@@ -405,6 +405,10 @@ func aesAuthEncrypt(data []byte, aesKey []byte, iv []byte) []byte {
 	}
 
 	ciphertext := aesgcm.Seal(nil, iv, data, nil)
+	// the AES GCM lib returns the data first then the authentication tag
+	// but we want the tag first
+	tag := ciphertext[len(ciphertext)-aesgcm.Overhead():]
+	ciphertext = append(tag, ciphertext[:len(ciphertext)-aesgcm.Overhead()]...)
 	return ciphertext
 }
 
@@ -420,6 +424,9 @@ func aesAuthDecrypt(encrypted, aesKey, iv []byte) []byte {
 		panic(err)
 	}
 
+	// the AES GCM lib expects the data first then the authentication tag
+	// but we have the tag first
+	encrypted = append(encrypted[gcm.Overhead():], encrypted[:gcm.Overhead()]...)
 	// Decrypt the message.
 	plaintext, err := gcm.Open(nil, iv, encrypted, nil)
 	if err != nil {

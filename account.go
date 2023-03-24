@@ -3,6 +3,7 @@ package archethic
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"strings"
 )
 
 func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) TransactionBuilder {
@@ -61,9 +62,9 @@ func GetKeychain(seed []byte, client APIClient) *Keychain {
 	accessAuthorizedKeys := accessOwnerships[0].AuthorizedPublicKeys
 
 	var accessSecretKey Hex
+	publicKeyHex := strings.ToUpper(hex.EncodeToString(publicKey))
 	for _, authKey := range accessAuthorizedKeys {
-		encoded := hex.EncodeToString(publicKey)
-		if string(authKey.PublicKey) == encoded {
+		if strings.ToUpper(string(authKey.PublicKey)) == publicKeyHex {
 			accessSecretKey = authKey.EncryptedSecretKey
 		}
 	}
@@ -87,7 +88,7 @@ func GetKeychain(seed []byte, client APIClient) *Keychain {
 
 	var keychainSecretKey Hex
 	for _, authKey := range keychainAuthorizedKeys {
-		if string(authKey.PublicKey) == hex.EncodeToString(publicKey) {
+		if strings.ToUpper(string(authKey.PublicKey)) == publicKeyHex {
 			keychainSecretKey = authKey.EncryptedSecretKey
 		}
 	}
