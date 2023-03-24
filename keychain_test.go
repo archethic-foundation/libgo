@@ -12,11 +12,11 @@ func TestKeychainToDID(t *testing.T) {
 	seed := []byte("abcdefghijklmnopqrstuvwxyz")
 	keychain := NewKeychain(seed)
 	publicKey, _ := keychain.DeriveKeypair("uco", 0)
-	address := DeriveAddress(seed, 0, keychain.services["uco"].curve, keychain.services["uco"].hashAlgo)
+	address := DeriveAddress(seed, 0, keychain.Services["uco"].Curve, keychain.Services["uco"].HashAlgo)
 
 	json := keychain.ToDID()
-	id := json.id
-	verificationMethod := json.verificationMethod
+	id := json.Id
+	verificationMethod := json.VerificationMethod
 
 	if id != fmt.Sprintf("did:archethic:%s", hex.EncodeToString(address)) {
 		t.Errorf("Unexpected id. Expected did:archethic:%s, got %s", address, id)
@@ -24,9 +24,9 @@ func TestKeychainToDID(t *testing.T) {
 
 	expected := []DIDKeyMaterial{
 		{
-			id:           fmt.Sprintf("%s#uco", id),
-			keyType:      "JsonWebKey2020",
-			publicKeyJwk: KeyToJWK(publicKey, "uco"),
+			Id:           fmt.Sprintf("%s#uco", id),
+			KeyType:      "JsonWebKey2020",
+			PublicKeyJwk: KeyToJWK(publicKey, "uco"),
 		},
 	}
 
@@ -38,11 +38,11 @@ func TestKeychainToDID(t *testing.T) {
 func TestKeychainEncode(t *testing.T) {
 	seed := []byte("myseed")
 
-	keychain := Keychain{seed: seed, version: 1, services: map[string]Service{
+	keychain := Keychain{Seed: seed, Version: 1, Services: map[string]Service{
 		"uco": {
-			derivationPath: "m/650'/0/0",
-			curve:          ED25519,
-			hashAlgo:       SHA256,
+			DerivationPath: "m/650'/0/0",
+			Curve:          ED25519,
+			HashAlgo:       SHA256,
 		},
 	}}
 
@@ -79,20 +79,20 @@ func TestDecodeKeychain(t *testing.T) {
 
 	keychain := DecodeKeychain(buf)
 
-	if !bytes.Equal([]byte("myseed"), keychain.seed) {
-		t.Errorf("Expected seed to be %v, got %v", []byte("myseed"), keychain.seed)
+	if !bytes.Equal([]byte("myseed"), keychain.Seed) {
+		t.Errorf("Expected seed to be %v, got %v", []byte("myseed"), keychain.Seed)
 	}
 
 	services := map[string]Service{
 		"uco": {
-			derivationPath: "m/650'/0/0",
-			curve:          ED25519,
-			hashAlgo:       SHA256,
+			DerivationPath: "m/650'/0/0",
+			Curve:          ED25519,
+			HashAlgo:       SHA256,
 		},
 	}
 
-	if !reflect.DeepEqual(services, keychain.services) {
-		t.Errorf("Expected services to be %v, got %v", services, keychain.services)
+	if !reflect.DeepEqual(services, keychain.Services) {
+		t.Errorf("Expected services to be %v, got %v", services, keychain.Services)
 	}
 
 }
@@ -101,11 +101,11 @@ func TestBuildTransaction(t *testing.T) {
 
 	seed := []byte("seed")
 
-	keychain := Keychain{seed: seed, version: 1, services: map[string]Service{
+	keychain := Keychain{Seed: seed, Version: 1, Services: map[string]Service{
 		"uco": {
-			derivationPath: "m/650'/0/0",
-			curve:          ED25519,
-			hashAlgo:       SHA256,
+			DerivationPath: "m/650'/0/0",
+			Curve:          ED25519,
+			HashAlgo:       SHA256,
 		},
 	}}
 

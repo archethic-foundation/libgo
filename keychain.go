@@ -11,6 +11,7 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -18,90 +19,95 @@ import (
 )
 
 type Keychain struct {
-	seed     []byte
-	version  uint8
-	services map[string]Service
+	Seed     []byte
+	Version  uint8
+	Services map[string]Service
 }
 
 type Service struct {
-	derivationPath string
-	curve          Curve
-	hashAlgo       HashAlgo
+	DerivationPath string
+	Curve          Curve
+	HashAlgo       HashAlgo
 }
 
 type DID struct {
-	context            []string
-	id                 string
-	authentication     []DIDKeyMaterial
-	verificationMethod []DIDKeyMaterial
+	Context            []string
+	Id                 string
+	Authentication     []DIDKeyMaterial
+	VerificationMethod []DIDKeyMaterial
 }
 
 type DIDKeyMaterial struct {
-	id           string
-	keyType      string
-	publicKeyJwk map[string]string
+	Id           string
+	KeyType      string
+	PublicKeyJwk map[string]string
 }
 
 func (s Service) toBytes() []byte {
 	buf := make([]byte, 0)
-	buf = append(buf, byte(len(s.derivationPath)))
-	buf = append(buf, []byte(s.derivationPath)...)
-	buf = append(buf, byte(s.curve))
-	buf = append(buf, byte(s.hashAlgo))
+	buf = append(buf, byte(len(s.DerivationPath)))
+	buf = append(buf, []byte(s.DerivationPath)...)
+	buf = append(buf, byte(s.Curve))
+	buf = append(buf, byte(s.HashAlgo))
 	return buf
 }
 
 // NewKeychain instanciates a new Keychain struct
 func NewKeychain(seed []byte) *Keychain {
 	return &Keychain{
-		seed:    seed,
-		version: 1,
-		services: map[string]Service{
+		Seed:    seed,
+		Version: 1,
+		Services: map[string]Service{
 			"uco": {
-				derivationPath: "m/650'/0/0",
-				curve:          P256,
-				hashAlgo:       SHA256,
+				DerivationPath: "m/650'/0/0",
+				Curve:          P256,
+				HashAlgo:       SHA256,
 			},
 		},
 	}
 }
 
 func (k *Keychain) AddService(name string, derivationPath string, curve Curve, hashAlgo HashAlgo) {
-	k.services[name] = Service{
-		derivationPath: derivationPath,
-		curve:          curve,
-		hashAlgo:       hashAlgo,
+	k.Services[name] = Service{
+		DerivationPath: derivationPath,
+		Curve:          curve,
+		HashAlgo:       hashAlgo,
 	}
 }
 
 func (k Keychain) ToDID() DID {
-	address := DeriveAddress(k.seed, 0, P256, SHA256)
+	address := DeriveAddress(k.Seed, 0, P256, SHA256)
 	keyMaterials := make([]DIDKeyMaterial, 0)
 
-	for serviceName, service := range k.services {
-		splittedPath := strings.Split(service.derivationPath, "/")
+	for serviceName, service := range k.Services {
+		splittedPath := strings.Split(service.DerivationPath, "/")
 		for i := 0; i < len(splittedPath); i++ {
 			splittedPath[i] = strings.ReplaceAll(splittedPath[i], "'", "")
 			purpose := splittedPath[i]
 			if purpose == "650" {
-				publicKey, _ := DeriveArchethicKeypair(k.seed, service.derivationPath, 0, service.curve)
+				publicKey, _ := DeriveArchethicKeypair(k.Seed, service.DerivationPath, 0, service.Curve)
 				keyMaterials = append(keyMaterials, DIDKeyMaterial{
-					id:           fmt.Sprintf("did:archethic:%x#%s", address, serviceName),
-					keyType:      "JsonWebKey2020",
-					publicKeyJwk: KeyToJWK(publicKey, serviceName),
+					Id:           fmt.Sprintf("did:archethic:%x#%s", address, serviceName),
+					KeyType:      "JsonWebKey2020",
+					PublicKeyJwk: KeyToJWK(publicKey, serviceName),
 				})
 			}
 		}
 	}
 
 	return DID{
-		context: []string{
+		Context: []string{
 			"https://www.w3.org/ns/did/v1",
 		},
-		id:                 fmt.Sprintf("did:archethic:%x", address),
-		authentication:     keyMaterials,
-		verificationMethod: keyMaterials,
+		Id:                 fmt.Sprintf("did:archethic:%x", address),
+		Authentication:     keyMaterials,
+		VerificationMethod: keyMaterials,
 	}
+}
+
+func (d DID) ToJSON() []byte {
+	json, _ := json.Marshal(d)
+	return json
 }
 
 func KeyToJWK(publicKey []byte, keyId string) map[string]string {
@@ -155,14 +161,14 @@ func (k Keychain) toBytes() []byte {
 	buf := make([]byte, 0)
 
 	version := make([]byte, 4)
-	binary.BigEndian.PutUint32(version, uint32(k.version))
+	binary.BigEndian.PutUint32(version, uint32(k.Version))
 	buf = append(buf, version...)
 
-	buf = append(buf, byte(len(k.seed)))
-	buf = append(buf, k.seed...)
-	buf = append(buf, byte(len(k.services)))
+	buf = append(buf, byte(len(k.Seed)))
+	buf = append(buf, k.Seed...)
+	buf = append(buf, byte(len(k.Services)))
 
-	for name, service := range k.services {
+	for name, service := range k.Services {
 		buf = append(buf, byte(len(name)))
 		buf = append(buf, []byte(name)...)
 		buf = append(buf, service.toBytes()...)
@@ -172,13 +178,13 @@ func (k Keychain) toBytes() []byte {
 }
 
 func (k Keychain) DeriveKeypair(serviceName string, index uint8) ([]byte, []byte) {
-	service, ok := k.services[serviceName]
+	service, ok := k.Services[serviceName]
 
 	if !ok {
 		panic("Service doesn't exists in the keychain")
 	}
 
-	return DeriveArchethicKeypair(k.seed, service.derivationPath, index, service.curve)
+	return DeriveArchethicKeypair(k.Seed, service.DerivationPath, index, service.Curve)
 }
 
 func DeriveArchethicKeypair(seed []byte, derivationPath string, index uint8, curve Curve) ([]byte, []byte) {
@@ -213,9 +219,9 @@ func DecodeKeychain(binaryInput []byte) *Keychain {
 	nbServices, _ := byteReader.ReadByte()
 
 	k := &Keychain{
-		seed:     seed,
-		version:  versionInt,
-		services: make(map[string]Service),
+		Seed:     seed,
+		Version:  versionInt,
+		Services: make(map[string]Service),
 	}
 
 	for i := 0; i < int(nbServices); i++ {
@@ -235,16 +241,16 @@ func DecodeKeychain(binaryInput []byte) *Keychain {
 }
 
 func (k Keychain) DeriveAddress(serviceName string, index uint8) []byte {
-	service, ok := k.services[serviceName]
+	service, ok := k.Services[serviceName]
 
 	if !ok {
 		panic("Service doesn't exists in the keychain")
 	}
-	publicKey, _ := DeriveArchethicKeypair(k.seed, service.derivationPath, index, service.curve)
+	publicKey, _ := DeriveArchethicKeypair(k.Seed, service.DerivationPath, index, service.Curve)
 
-	hashedPublicKey := hash(publicKey, service.hashAlgo)
+	hashedPublicKey := hash(publicKey, service.HashAlgo)
 	result := make([]byte, 0)
-	result = append(result, byte(service.curve))
+	result = append(result, byte(service.Curve))
 	result = append(result, hashedPublicKey...)
 	return result
 

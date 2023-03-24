@@ -3,6 +3,7 @@ package archethic
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -29,6 +30,14 @@ type Fee struct {
 	}
 }
 
+type Ownerships []struct {
+	Secret               []byte
+	AuthorizedPublicKeys []struct {
+		EncryptedSecretKey []byte
+		PublicKey          []byte
+	}
+}
+
 type OwnershipsGQL []struct {
 	Secret               Hex
 	AuthorizedPublicKeys []struct {
@@ -52,6 +61,18 @@ type NearestEndpointsGQL struct {
 	}
 }
 
+type Token struct {
+	Genesis    []byte
+	Name       string
+	Symbol     string
+	Supply     int
+	Type       string
+	Properties [2]interface{}
+	Collection [][2]interface{}
+	Id         string
+	Decimals   int
+}
+
 type TokenGQL struct {
 	Genesis    Address
 	Name       string
@@ -71,6 +92,15 @@ type OracleDataWithTimestampGQL struct {
 			Eur float32
 			Usd float32
 		}
+	}
+}
+
+type Balance struct {
+	Uco   int
+	Token []struct {
+		Address []byte
+		Amount  int
+		TokenId int
 	}
 }
 
@@ -183,7 +213,7 @@ func (c *APIClient) GetTransactionFee(tx *TransactionBuilder) Fee {
 	return fee
 }
 
-func (c *APIClient) GetTransactionOwnerships(address string) OwnershipsGQL {
+func (c *APIClient) GetTransactionOwnerships(address string) Ownerships {
 
 	var query TransactionOwnershipsGQL
 
@@ -194,10 +224,32 @@ func (c *APIClient) GetTransactionOwnerships(address string) OwnershipsGQL {
 	if err != nil {
 		panic(err)
 	}
-	return query.Transaction.Data.Ownerships
+	result := make(Ownerships, len(query.Transaction.Data.Ownerships))
+	for i, ownership := range query.Transaction.Data.Ownerships {
+		result[i].Secret, err = hex.DecodeString(string(ownership.Secret))
+		if err != nil {
+			panic(err)
+		}
+		result[i].AuthorizedPublicKeys = make([]struct {
+			EncryptedSecretKey []byte
+			PublicKey          []byte
+		}, len(ownership.AuthorizedPublicKeys))
+		for j, authorizedPublicKey := range ownership.AuthorizedPublicKeys {
+			result[i].AuthorizedPublicKeys[j].PublicKey, err = hex.DecodeString(string(authorizedPublicKey.PublicKey))
+			if err != nil {
+				panic(err)
+			}
+			result[i].AuthorizedPublicKeys[j].EncryptedSecretKey, err = hex.DecodeString(string(authorizedPublicKey.EncryptedSecretKey))
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	return result
 }
 
-func (c *APIClient) GetToken(address string) TokenGQL {
+func (c *APIClient) GetToken(address string) Token {
 
 	var query struct {
 		Token TokenGQL `graphql:"token(address: $address)"`
@@ -210,7 +262,24 @@ func (c *APIClient) GetToken(address string) TokenGQL {
 	if err != nil {
 		panic(err)
 	}
-	return query.Token
+
+	genesisAddress, err := hex.DecodeString(string(query.Token.Genesis))
+	if err != nil {
+		panic(err)
+	}
+
+	return Token{
+		Genesis:    genesisAddress,
+		Name:       query.Token.Name,
+		Symbol:     query.Token.Symbol,
+		Supply:     query.Token.Supply,
+		Type:       query.Token.Type,
+		Properties: query.Token.Properties,
+		Collection: query.Token.Collection,
+		Id:         query.Token.Id,
+		Decimals:   query.Token.Decimals,
+	}
+
 }
 
 func (c *APIClient) AddOriginKey(originPublicKey, certificate string) {
@@ -265,7 +334,7 @@ func (c *APIClient) GetOracleData(timestamp ...int64) OracleDataWithTimestampGQL
 	}
 }
 
-func (c *APIClient) GetBalance(address string) BalanceGQL {
+func (c *APIClient) GetBalance(address string) Balance {
 
 	var query struct {
 		Balance BalanceGQL `graphql:"balance(address: $address)"`
@@ -278,7 +347,25 @@ func (c *APIClient) GetBalance(address string) BalanceGQL {
 	if err != nil {
 		panic(err)
 	}
-	return query.Balance
+
+	tokens := make([]struct {
+		Address []byte
+		Amount  int
+		TokenId int
+	},
+		len(query.Balance.Token))
+	for i, token := range query.Balance.Token {
+		tokens[i].Address, err = hex.DecodeString(string(token.Address))
+		if err != nil {
+			panic(err)
+		}
+		tokens[i].Amount = token.Amount
+		tokens[i].TokenId = token.TokenId
+	}
+	return Balance{
+		Uco:   query.Balance.Uco,
+		Token: tokens,
+	}
 }
 
 func (c *APIClient) SubscribeToOracleUpdates(handler func(OracleDataWithTimestampGQL)) {
