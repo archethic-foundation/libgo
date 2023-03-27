@@ -70,7 +70,7 @@ func GetKeychain(seed []byte, client APIClient) *Keychain {
 	accessKey := EcDecrypt(accessSecretKey, privateKey)
 	keychainAddress := AesDecrypt(accessSecret, accessKey)
 
-	keychainOwnerships := client.GetTransactionOwnerships(hex.EncodeToString(keychainAddress))
+	keychainOwnerships := client.GetLastTransactionOwnerships(hex.EncodeToString(keychainAddress))
 
 	keychainSecret := keychainOwnerships[0].Secret
 	keychainAuthorizedKeys := keychainOwnerships[0].AuthorizedPublicKeys

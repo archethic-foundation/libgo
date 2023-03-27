@@ -64,7 +64,7 @@ func TestCreateNewAccessKeychainTransaction(t *testing.T) {
 }
 
 func TestShouldGetKeychain(t *testing.T) {
-	client := NewAPIClient("http://localhost:4000/api", "")
+	client := NewAPIClient("http://localhost:4000", "")
 
 	publicKey, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
 	keychainTx := NewKeychainTransaction([]byte("myseed"), [][]byte{publicKey})
@@ -108,7 +108,7 @@ func TestShouldGetKeychain(t *testing.T) {
 				}
 			}
 
-			expectedQuery2 := fmt.Sprintf(`{"query":"query ($address:Address!){transaction(address: $address){data{ownerships{secret,authorizedPublicKeys{encryptedSecretKey,publicKey}}}}}","variables":{"address":"%s"}}
+			expectedQuery2 := fmt.Sprintf(`{"query":"query ($address:Address!){lastTransaction(address: $address){data{ownerships{secret,authorizedPublicKeys{encryptedSecretKey,publicKey}}}}}","variables":{"address":"%s"}}
 `, hex.EncodeToString(keychainTx.Address))
 
 			if reflect.DeepEqual(body, []byte(expectedQuery2)) {
@@ -125,7 +125,7 @@ func TestShouldGetKeychain(t *testing.T) {
 
 				response := fmt.Sprintf(`{
 				        "data": {
-				          "transaction": {
+				          "lastTransaction": {
 				            "data": {
 				              "ownerships": [
 				                {

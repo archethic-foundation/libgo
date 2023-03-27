@@ -265,7 +265,7 @@ import (
   - `certificate` is the certificate that prove the public key is allowed to be added.
 
   ```golang
-    client := archethic.NewAPIClient("http://localhost:4000/api", "")
+    client := archethic.NewAPIClient("http://localhost:4000", "")
 
     client.AddOriginKey("01103109", "mycertificate")
   ```
@@ -276,7 +276,7 @@ import (
   - `addresses` Transaction address (in hexadecimal)
 
   ```golang
-    client := archethic.NewAPIClient("http://localhost:4000/api", "")
+    client := archethic.NewAPIClient("http://localhost:4000", "")
     client.GetLastTransactionIndex("0000872D96130A2963F1195D1F85FC316AE966644F2E3EE45469C2A257F49C4631C2")
   ``` 
 
@@ -296,7 +296,7 @@ import (
   
   ```golang
   
-    client := archethic.NewAPIClient("http://localhost:4000/api", "")
+    client := archethic.NewAPIClient("http://localhost:4000", "")
 
 	tx := archethic.TransactionBuilder{}
 	tx.SetType(archethic.TransferType)
@@ -316,7 +316,7 @@ import (
   - `addresses`: Transaction address
 
   ```golang
-    client := archethic.NewAPIClient("http://localhost:4000/api", "")
+    client := archethic.NewAPIClient("http://localhost:4000", "")
     client.GetTransactionOwnerships("0000872D96130A2963F1195D1F85FC316AE966644F2E3EE45469C2A257F49C4631C2")
 
   ```
@@ -346,7 +346,7 @@ import (
   - `client` the API client
 
   ```go
-  client := archethic.NewAPIClient("http://localhost:4000/api", "")
+  client := archethic.NewAPIClient("http://localhost:4000", "")
   keychain := archethic.GetKeychain([]byte("seed"), *client)
   ```  
 

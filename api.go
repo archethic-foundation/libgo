@@ -54,6 +54,14 @@ type TransactionOwnershipsGQL struct {
 	} `graphql:"transaction(address: $address)"`
 }
 
+type LastTransactionOwnershipsGQL struct {
+	LastTransaction struct {
+		Data struct {
+			Ownerships OwnershipsGQL
+		}
+	} `graphql:"lastTransaction(address: $address)"`
+}
+
 type NearestEndpointsGQL struct {
 	NearestEndpoints []struct {
 		IP   string
@@ -134,6 +142,7 @@ type APIClient struct {
 }
 
 func NewAPIClient(baseURL, wsUrl string) *APIClient {
+	baseURL = baseURL + "/api"
 	graphqlClient := graphql.NewClient(baseURL, nil)
 	absintheSocket := new(phx.Socket)
 	return &APIClient{baseURL, wsUrl, graphqlClient, absintheSocket, http.DefaultClient}
@@ -226,6 +235,42 @@ func (c *APIClient) GetTransactionOwnerships(address string) Ownerships {
 	}
 	result := make(Ownerships, len(query.Transaction.Data.Ownerships))
 	for i, ownership := range query.Transaction.Data.Ownerships {
+		result[i].Secret, err = hex.DecodeString(string(ownership.Secret))
+		if err != nil {
+			panic(err)
+		}
+		result[i].AuthorizedPublicKeys = make([]struct {
+			EncryptedSecretKey []byte
+			PublicKey          []byte
+		}, len(ownership.AuthorizedPublicKeys))
+		for j, authorizedPublicKey := range ownership.AuthorizedPublicKeys {
+			result[i].AuthorizedPublicKeys[j].PublicKey, err = hex.DecodeString(string(authorizedPublicKey.PublicKey))
+			if err != nil {
+				panic(err)
+			}
+			result[i].AuthorizedPublicKeys[j].EncryptedSecretKey, err = hex.DecodeString(string(authorizedPublicKey.EncryptedSecretKey))
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	return result
+}
+
+func (c *APIClient) GetLastTransactionOwnerships(address string) Ownerships {
+
+	var query LastTransactionOwnershipsGQL
+
+	variables := map[string]interface{}{
+		"address": Address(address),
+	}
+	err := c.graphqlClient.Query(context.Background(), &query, variables)
+	if err != nil {
+		panic(err)
+	}
+	result := make(Ownerships, len(query.LastTransaction.Data.Ownerships))
+	for i, ownership := range query.LastTransaction.Data.Ownerships {
 		result[i].Secret, err = hex.DecodeString(string(ownership.Secret))
 		if err != nil {
 			panic(err)
