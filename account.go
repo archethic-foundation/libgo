@@ -16,8 +16,8 @@ func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) Transact
 	authorizedKeys := make([]AuthorizedKey, len(authorizedPublicKeys))
 	for i, key := range authorizedPublicKeys {
 		authorizedKeys[i] = AuthorizedKey{
-			publicKey:          key,
-			encryptedSecretKey: EcEncrypt(aesKey, key),
+			PublicKey:          key,
+			EncryptedSecretKey: EcEncrypt(aesKey, key),
 		}
 	}
 
@@ -38,8 +38,8 @@ func NewAccessTransaction(seed []byte, keychainAddress []byte) TransactionBuilde
 
 	authorizedKeys := []AuthorizedKey{
 		{
-			publicKey:          publicKey,
-			encryptedSecretKey: encryptedSecretKey,
+			PublicKey:          publicKey,
+			EncryptedSecretKey: encryptedSecretKey,
 		},
 	}
 

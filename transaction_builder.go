@@ -186,8 +186,8 @@ func (o Ownership) toBytes() []byte {
 	authorizedKeysBuf := make([]byte, 0)
 	for j := 0; j < len(o.AuthorizedKeys); j++ {
 		authorizedKey := o.AuthorizedKeys[j]
-		authorizedKeysBuf = append(authorizedKeysBuf, authorizedKey.publicKey...)
-		authorizedKeysBuf = append(authorizedKeysBuf, authorizedKey.encryptedSecretKey...)
+		authorizedKeysBuf = append(authorizedKeysBuf, authorizedKey.PublicKey...)
+		authorizedKeysBuf = append(authorizedKeysBuf, authorizedKey.EncryptedSecretKey...)
 	}
 
 	size, authorizedKeySize := convertToMinimumBytes(len(o.AuthorizedKeys))
@@ -199,8 +199,8 @@ func (o Ownership) toBytes() []byte {
 }
 
 type AuthorizedKey struct {
-	publicKey          []byte
-	encryptedSecretKey []byte
+	PublicKey          []byte
+	EncryptedSecretKey []byte
 }
 
 // New transaction builder instance
@@ -269,13 +269,13 @@ func (t *TransactionBuilder) AddOwnership(secret []byte, authorizedKeys []Author
 
 	// Remove duplicated public key
 	for _, k := range authorizedKeys {
-		publicKey := k.publicKey
-		encryptedSecretKey := k.encryptedSecretKey
+		publicKey := k.PublicKey
+		encryptedSecretKey := k.EncryptedSecretKey
 
 		if _, ok := emptyAcc[string(publicKey)]; !ok {
 			filteredAuthorizedKeys = append(filteredAuthorizedKeys, AuthorizedKey{
-				publicKey:          publicKey,
-				encryptedSecretKey: encryptedSecretKey,
+				PublicKey:          publicKey,
+				EncryptedSecretKey: encryptedSecretKey,
 			})
 		}
 
@@ -424,8 +424,8 @@ func (t *TransactionBuilder) ToJSON() ([]byte, error) {
 		authorizedKeys := make([]map[string]string, len(o.AuthorizedKeys))
 		for j, a := range o.AuthorizedKeys {
 			authorizedKeys[j] = map[string]string{
-				"publicKey":          hex.EncodeToString(a.publicKey),
-				"encryptedSecretKey": hex.EncodeToString(a.encryptedSecretKey),
+				"publicKey":          hex.EncodeToString(a.PublicKey),
+				"encryptedSecretKey": hex.EncodeToString(a.EncryptedSecretKey),
 			}
 		}
 		ownerships[i] = map[string]interface{}{

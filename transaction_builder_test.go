@@ -79,19 +79,19 @@ func TestAddOwnership(t *testing.T) {
 		[]byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 		[]AuthorizedKey{
 			{
-				publicKey:          []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-				encryptedSecretKey: []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
+				PublicKey:          []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
+				EncryptedSecretKey: []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 			},
 			{
-				publicKey:          []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-				encryptedSecretKey: []byte("00601fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
+				PublicKey:          []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
+				EncryptedSecretKey: []byte("00601fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 			},
 		},
 	)
 
 	expectedContent := []AuthorizedKey{{
-		publicKey:          []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-		encryptedSecretKey: []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
+		PublicKey:          []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
+		EncryptedSecretKey: []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 	}}
 	if !reflect.DeepEqual(tx.Data.Ownerships[0].AuthorizedKeys, expectedContent) {
 		t.Errorf("Failed to set transaction authorized key")
@@ -171,8 +171,8 @@ func TestPreviousSignaturePayload(t *testing.T) {
 		secret,
 		[]AuthorizedKey{
 			{
-				publicKey:          []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-				encryptedSecretKey: []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
+				PublicKey:          []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
+				EncryptedSecretKey: []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 			},
 			// {
 			// 	publicKey:          []byte("0001a1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
@@ -344,12 +344,12 @@ func TestOriginSignaturePayload(t *testing.T) {
 		secret,
 		[]AuthorizedKey{
 			{
-				publicKey:          []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-				encryptedSecretKey: []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
+				PublicKey:          []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
+				EncryptedSecretKey: []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 			},
 			{
-				publicKey:          []byte("0001a1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-				encryptedSecretKey: []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
+				PublicKey:          []byte("0001a1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
+				EncryptedSecretKey: []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 			},
 		},
 	)

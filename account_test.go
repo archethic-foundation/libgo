@@ -37,8 +37,8 @@ func TestCreateKeychainTransaction(t *testing.T) {
 	if len(tx.Data.Ownerships[0].AuthorizedKeys) != 1 {
 		t.Errorf("Error with authorized keys length expected %d but got %d", 1, len(tx.Data.Ownerships[0].AuthorizedKeys))
 	}
-	if !reflect.DeepEqual(tx.Data.Ownerships[0].AuthorizedKeys[0].publicKey, pubKey) {
-		t.Errorf("Error with authorized keys expected %d but got %d", pubKey, tx.Data.Ownerships[0].AuthorizedKeys[0].publicKey)
+	if !reflect.DeepEqual(tx.Data.Ownerships[0].AuthorizedKeys[0].PublicKey, pubKey) {
+		t.Errorf("Error with authorized keys expected %d but got %d", pubKey, tx.Data.Ownerships[0].AuthorizedKeys[0].PublicKey)
 	}
 
 }
@@ -57,8 +57,8 @@ func TestCreateNewAccessKeychainTransaction(t *testing.T) {
 	if len(tx.Data.Ownerships[0].AuthorizedKeys) != 1 {
 		t.Errorf("Error with authorized keys length expected %d but got %d", 1, len(tx.Data.Ownerships[0].AuthorizedKeys))
 	}
-	if !reflect.DeepEqual(tx.Data.Ownerships[0].AuthorizedKeys[0].publicKey, publicKey) {
-		t.Errorf("Error with authorized keys expected %d but got %d", publicKey, tx.Data.Ownerships[0].AuthorizedKeys[0].publicKey)
+	if !reflect.DeepEqual(tx.Data.Ownerships[0].AuthorizedKeys[0].PublicKey, publicKey) {
+		t.Errorf("Error with authorized keys expected %d but got %d", publicKey, tx.Data.Ownerships[0].AuthorizedKeys[0].PublicKey)
 	}
 
 }
@@ -82,8 +82,8 @@ func TestShouldGetKeychain(t *testing.T) {
 				authorizedKeys := make([]map[string]string, len(accessTx.Data.Ownerships[0].AuthorizedKeys))
 				for j, a := range accessTx.Data.Ownerships[0].AuthorizedKeys {
 					authorizedKeys[j] = map[string]string{
-						"publicKey":          hex.EncodeToString(a.publicKey),
-						"encryptedSecretKey": hex.EncodeToString(a.encryptedSecretKey),
+						"publicKey":          hex.EncodeToString(a.PublicKey),
+						"encryptedSecretKey": hex.EncodeToString(a.EncryptedSecretKey),
 					}
 				}
 
@@ -116,8 +116,8 @@ func TestShouldGetKeychain(t *testing.T) {
 				authorizedKeys := make([]map[string]string, len(keychainTx.Data.Ownerships[0].AuthorizedKeys))
 				for j, a := range keychainTx.Data.Ownerships[0].AuthorizedKeys {
 					authorizedKeys[j] = map[string]string{
-						"publicKey":          hex.EncodeToString(a.publicKey),
-						"encryptedSecretKey": hex.EncodeToString(a.encryptedSecretKey),
+						"publicKey":          hex.EncodeToString(a.PublicKey),
+						"encryptedSecretKey": hex.EncodeToString(a.EncryptedSecretKey),
 					}
 				}
 
