@@ -248,7 +248,7 @@ func (k Keychain) DeriveAddress(serviceName string, index uint8) []byte {
 	}
 	publicKey, _ := DeriveArchethicKeypair(k.Seed, service.DerivationPath, index, service.Curve)
 
-	hashedPublicKey := hash(publicKey, service.HashAlgo)
+	hashedPublicKey := Hash(publicKey, service.HashAlgo)
 	result := make([]byte, 0)
 	result = append(result, byte(service.Curve))
 	result = append(result, hashedPublicKey...)
