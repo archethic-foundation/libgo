@@ -64,7 +64,7 @@ func TestCreateNewAccessKeychainTransaction(t *testing.T) {
 }
 
 func TestShouldGetKeychain(t *testing.T) {
-	client := NewAPIClient("http://localhost:4000", "")
+	client := NewAPIClient("http://localhost:4000")
 
 	publicKey, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
 	keychainTx := NewKeychainTransaction([]byte("myseed"), [][]byte{publicKey})

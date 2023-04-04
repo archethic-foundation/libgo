@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/hasura/go-graphql-client"
 	"github.com/nshafer/phx"
@@ -141,7 +143,22 @@ type APIClient struct {
 	httpClient     *http.Client
 }
 
-func NewAPIClient(baseURL, wsUrl string) *APIClient {
+func NewAPIClient(baseURL string) *APIClient {
+
+	urlObj, _ := url.Parse(baseURL)
+
+	host := urlObj.Host
+	protocol := strings.ToLower(urlObj.Scheme)
+
+	var ws_protocol string
+	if protocol == "https" {
+		ws_protocol = "wss"
+	} else {
+		ws_protocol = "ws"
+	}
+
+	wsUrl := ws_protocol + "://" + host + "/socket"
+
 	baseURL = baseURL + "/api"
 	graphqlClient := graphql.NewClient(baseURL, nil)
 	absintheSocket := new(phx.Socket)
