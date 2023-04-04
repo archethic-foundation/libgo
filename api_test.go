@@ -16,7 +16,7 @@ func (f MockRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func TestGetNearestEndpoints(t *testing.T) {
-	client := NewAPIClient("http://localhost:4000", "")
+	client := NewAPIClient("http://localhost:4000")
 	client.InjectHTTPClient(&http.Client{
 		Transport: MockRoundTripper(func(r *http.Request) *http.Response {
 			body, _ := io.ReadAll(r.Body)
@@ -53,7 +53,7 @@ func TestGetNearestEndpoints(t *testing.T) {
 }
 
 func TestGetStorageNoncePublicKey(t *testing.T) {
-	client := NewAPIClient("http://localhost:4000", "")
+	client := NewAPIClient("http://localhost:4000")
 	client.InjectHTTPClient(&http.Client{
 		Transport: MockRoundTripper(func(r *http.Request) *http.Response {
 			body, _ := io.ReadAll(r.Body)
@@ -85,7 +85,7 @@ func TestGetStorageNoncePublicKey(t *testing.T) {
 }
 
 func TestAddOriginKey(t *testing.T) {
-	client := NewAPIClient("http://localhost:4000", "")
+	client := NewAPIClient("http://localhost:4000")
 	client.InjectHTTPClient(&http.Client{
 		Transport: MockRoundTripper(func(r *http.Request) *http.Response {
 			if r.URL.String() != "http://localhost:4000/api/origin_key" {
@@ -103,7 +103,7 @@ func TestAddOriginKey(t *testing.T) {
 }
 
 func TestGetOracleData(t *testing.T) {
-	client := NewAPIClient("http://localhost:4000", "")
+	client := NewAPIClient("http://localhost:4000")
 	client.InjectHTTPClient(&http.Client{
 		Transport: MockRoundTripper(func(r *http.Request) *http.Response {
 			body, _ := io.ReadAll(r.Body)
@@ -139,7 +139,7 @@ func TestGetOracleData(t *testing.T) {
 }
 
 func TestGetOracleDataWithTimestamp(t *testing.T) {
-	client := NewAPIClient("http://localhost:4000", "")
+	client := NewAPIClient("http://localhost:4000")
 	client.InjectHTTPClient(&http.Client{
 		Transport: MockRoundTripper(func(r *http.Request) *http.Response {
 			body, _ := io.ReadAll(r.Body)
@@ -176,7 +176,7 @@ func TestGetOracleDataWithTimestamp(t *testing.T) {
 }
 
 func TestGetToken(t *testing.T) {
-	client := NewAPIClient("http://localhost:4000", "")
+	client := NewAPIClient("http://localhost:4000")
 	client.InjectHTTPClient(&http.Client{
 		Transport: MockRoundTripper(func(r *http.Request) *http.Response {
 			body, _ := io.ReadAll(r.Body)
