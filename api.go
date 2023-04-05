@@ -193,7 +193,7 @@ func (c *APIClient) GetLastTransactionIndex(address string) int {
 	}
 	err := c.graphqlClient.Query(context.Background(), &query, variables)
 	if err != nil {
-		panic(err)
+		return 0
 	}
 	return query.LastTransaction.ChainLength
 }
