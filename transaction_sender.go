@@ -170,11 +170,11 @@ func (ts *TransactionSender) SubscribeTransactionError(transactionAddress string
 
 		jsonStr, err := json.Marshal(data)
 		if err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 
 		if err := json.Unmarshal(jsonStr, &response); err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 
 		handler(response.TransactionError)
@@ -200,11 +200,11 @@ func (ts *TransactionSender) SubscribeTransactionConfirmed(transactionAddress st
 
 		jsonStr, err := json.Marshal(data)
 		if err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 
 		if err := json.Unmarshal(jsonStr, &response); err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 
 		handler(response.TransactionConfirmed)
@@ -256,7 +256,7 @@ func (ts *TransactionSender) handleSend(timeout int, response *http.Response, is
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("request body: %s\n", respBody)
+
 	if response.StatusCode >= 200 && response.StatusCode <= 299 {
 		for _, f := range ts.onSent {
 			f()

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -231,7 +230,7 @@ func (c *APIClient) GetTransactionFee(tx *TransactionBuilder) Fee {
 	}
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("could not read response body: %s\n", err)
+		panic(err)
 	}
 
 	var fee Fee
@@ -447,11 +446,11 @@ func (c *APIClient) SubscribeToOracleUpdates(handler func(OracleDataWithTimestam
 
 		jsonStr, err := json.Marshal(data)
 		if err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 
 		if err := json.Unmarshal(jsonStr, &response); err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 
 		handler(response.OracleUpdate)
