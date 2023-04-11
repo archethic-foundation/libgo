@@ -188,7 +188,11 @@ func (k Keychain) DeriveKeypair(serviceName string, index uint8) ([]byte, []byte
 }
 
 func DeriveArchethicKeypair(seed []byte, derivationPath string, index uint8, curve Curve) ([]byte, []byte) {
-	indexedPath := replaceDerivationPathIndex(derivationPath, index)
+	return DeriveArchethicKeypairWithPathSuffix(seed, derivationPath, index, curve, "")
+}
+
+func DeriveArchethicKeypairWithPathSuffix(seed []byte, derivationPath string, index uint8, curve Curve, pathSuffix string) ([]byte, []byte) {
+	indexedPath := replaceDerivationPathIndex(derivationPath, pathSuffix, index)
 	h := sha256.New()
 	h.Write([]byte(indexedPath))
 	hashedPath := h.Sum(nil)
@@ -200,11 +204,14 @@ func DeriveArchethicKeypair(seed []byte, derivationPath string, index uint8, cur
 	return GenerateDeterministicKeypair(extendedSeed, curve, KEYCHAIN_ORIGIN_ID)
 }
 
-func replaceDerivationPathIndex(derivationPath string, index uint8) string {
-	splitted := strings.Split(derivationPath, "/")
-	splitted = splitted[:len(splitted)-1]
-	splitted = append(splitted, strconv.Itoa(int(index)))
-	return strings.Join(splitted[:], "/")
+func replaceDerivationPathIndex(derivationPath string, suffix string, index uint8) string {
+	servicePath := strings.Split(derivationPath, "/")
+	servicePath = servicePath[:len(servicePath)-1]
+
+	serviceName := servicePath[len(servicePath)-1] + suffix
+
+	servicePath = append(servicePath, serviceName, strconv.Itoa(int(index)))
+	return strings.Join(servicePath, "/")
 }
 
 func DecodeKeychain(binaryInput []byte) *Keychain {
