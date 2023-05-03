@@ -31,16 +31,17 @@ type Service struct {
 }
 
 type DID struct {
-	Context            []string
-	Id                 string
-	Authentication     []DIDKeyMaterial
-	VerificationMethod []DIDKeyMaterial
+	Context            []string         `json:"@context"`
+	Id                 string           `json:"id"`
+	Authentication     []string         `json:"authentication"`
+	VerificationMethod []DIDKeyMaterial `json:"verificationMethod"`
 }
 
 type DIDKeyMaterial struct {
-	Id           string
-	KeyType      string
-	PublicKeyJwk map[string]string
+	Id           string            `json:"id"`
+	KeyType      string            `json:"type"`
+	PublicKeyJwk map[string]string `json:"publicKeyJwk"`
+	Controller   string            `json:"controller"`
 }
 
 func (s Service) toBytes() []byte {
@@ -77,7 +78,9 @@ func (k *Keychain) AddService(name string, derivationPath string, curve Curve, h
 
 func (k Keychain) ToDID() DID {
 	address := DeriveAddress(k.Seed, 0, P256, SHA256)
-	keyMaterials := make([]DIDKeyMaterial, 0)
+
+	authentications := make([]string, 0)
+	verificationMethods := make([]DIDKeyMaterial, 0)
 
 	for serviceName, service := range k.Services {
 		splittedPath := strings.Split(service.DerivationPath, "/")
@@ -86,11 +89,13 @@ func (k Keychain) ToDID() DID {
 			purpose := splittedPath[i]
 			if purpose == "650" {
 				publicKey, _ := DeriveArchethicKeypair(k.Seed, service.DerivationPath, 0, service.Curve)
-				keyMaterials = append(keyMaterials, DIDKeyMaterial{
+				verificationMethods = append(verificationMethods, DIDKeyMaterial{
 					Id:           fmt.Sprintf("did:archethic:%x#%s", address, serviceName),
 					KeyType:      "JsonWebKey2020",
 					PublicKeyJwk: KeyToJWK(publicKey, serviceName),
+					Controller:   fmt.Sprintf("did:archethic:%x", address),
 				})
+				authentications = append(authentications, fmt.Sprintf("did:archethic:%x#%s", address, serviceName))
 			}
 		}
 	}
@@ -100,8 +105,8 @@ func (k Keychain) ToDID() DID {
 			"https://www.w3.org/ns/did/v1",
 		},
 		Id:                 fmt.Sprintf("did:archethic:%x", address),
-		Authentication:     keyMaterials,
-		VerificationMethod: keyMaterials,
+		Authentication:     authentications,
+		VerificationMethod: verificationMethods,
 	}
 }
 

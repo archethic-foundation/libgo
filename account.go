@@ -21,12 +21,11 @@ func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) Transact
 		}
 	}
 
-	tx := TransactionBuilder{}
-	tx.SetType(KeychainType)
+	tx := NewTransaction(KeychainType)
 	tx.SetContent(keychain.ToDID().ToJSON())
 	tx.AddOwnership(AesEncrypt(keychain.toBytes(), aesKey), authorizedKeys)
 	tx.Build(seed, 0, ED25519, SHA256)
-	return tx
+	return *tx
 }
 
 func NewAccessTransaction(seed []byte, keychainAddress []byte) TransactionBuilder {
@@ -43,11 +42,10 @@ func NewAccessTransaction(seed []byte, keychainAddress []byte) TransactionBuilde
 		},
 	}
 
-	tx := TransactionBuilder{}
-	tx.SetType(KeychainAccessType)
+	tx := NewTransaction(KeychainAccessType)
 	tx.AddOwnership(AesEncrypt(keychainAddress, aesKey), authorizedKeys)
 	tx.Build(seed, 0, ED25519, SHA256)
-	return tx
+	return *tx
 }
 
 func GetKeychain(seed []byte, client APIClient) *Keychain {
