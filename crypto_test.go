@@ -24,7 +24,7 @@ func TestHash(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		output := Hash(test.input, test.algo)
+		output, _ := Hash(test.input, test.algo)
 		outputHex := hex.EncodeToString(output)
 		if outputHex != test.expected {
 			t.Errorf("Hash(%q, %q) = %q, expected %q", test.input, test.algo, output, test.expected)
@@ -47,15 +47,15 @@ func TestDeriveKeyPair(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		publicKey, _ := DeriveKeypair(test.seed, test.index, test.curve)
+		publicKey, _, _ := DeriveKeypair(test.seed, test.index, test.curve)
 		publicKeyHex := hex.EncodeToString(publicKey)
 		if publicKeyHex != test.expected {
 			t.Errorf("Test %d for %d: expected public key %s, but got %s", i, test.curve, test.expected, publicKeyHex)
 		}
 	}
 
-	keypair1, _ := DeriveKeypair(seed, 0, P256)
-	keypair2, _ := DeriveKeypair(seed, 1, P256)
+	keypair1, _, _ := DeriveKeypair(seed, 0, P256)
+	keypair2, _, _ := DeriveKeypair(seed, 1, P256)
 
 	if reflect.DeepEqual(keypair1, keypair2) {
 		t.Error("Expected keypair1 and keypair2 to be different")
@@ -77,8 +77,8 @@ func TestSignAndVerify(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		publicKey, privateKey := DeriveKeypair(test.seed, test.index, test.curve)
-		sig := Sign(privateKey, message)
+		publicKey, privateKey, _ := DeriveKeypair(test.seed, test.index, test.curve)
+		sig, _ := Sign(privateKey, message)
 		result, err := Verify(sig, message, publicKey)
 		if err != nil {
 			log.Println(err)
@@ -91,23 +91,23 @@ func TestSignAndVerify(t *testing.T) {
 
 func TestEcEncrypt(t *testing.T) {
 	textToEncrypt := []byte("hello")
-	publicKey, privateKey := DeriveKeypair([]byte("seed"), 0, P256)
-	cipherText := EcEncrypt(textToEncrypt, publicKey)
-	result := EcDecrypt(cipherText, privateKey)
+	publicKey, privateKey, _ := DeriveKeypair([]byte("seed"), 0, P256)
+	cipherText, _ := EcEncrypt(textToEncrypt, publicKey)
+	result, _ := EcDecrypt(cipherText, privateKey)
 	if string(textToEncrypt) != string(result) {
 		t.Errorf("Ec encrypt / decrypt failed for P256")
 	}
 
-	publicKey, privateKey = DeriveKeypair([]byte("seed"), 0, ED25519)
-	cipherText = EcEncrypt(textToEncrypt, publicKey)
-	result = EcDecrypt(cipherText, privateKey)
+	publicKey, privateKey, _ = DeriveKeypair([]byte("seed"), 0, ED25519)
+	cipherText, _ = EcEncrypt(textToEncrypt, publicKey)
+	result, _ = EcDecrypt(cipherText, privateKey)
 	if string(textToEncrypt) != string(result) {
 		t.Errorf("Ec encrypt / decrypt failed for ED25519")
 	}
 
-	publicKey, privateKey = DeriveKeypair([]byte("seed"), 0, SECP256K1)
-	cipherText = EcEncrypt(textToEncrypt, publicKey)
-	result = EcDecrypt(cipherText, privateKey)
+	publicKey, privateKey, _ = DeriveKeypair([]byte("seed"), 0, SECP256K1)
+	cipherText, _ = EcEncrypt(textToEncrypt, publicKey)
+	result, _ = EcDecrypt(cipherText, privateKey)
 	if string(textToEncrypt) != string(result) {
 		t.Errorf("Ec encrypt / decrypt failed for SECP256K1")
 	}
@@ -119,9 +119,9 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	data := []byte("hello")
 
-	encrypted := AesEncrypt(data, key)
+	encrypted, _ := AesEncrypt(data, key)
 
-	decrypted := AesDecrypt(encrypted, key)
+	decrypted, _ := AesDecrypt(encrypted, key)
 
 	if !bytes.Equal(decrypted, data) {
 		t.Errorf("Decrypted data does not match original data")

@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -76,8 +77,11 @@ func (k *Keychain) AddService(name string, derivationPath string, curve Curve, h
 	}
 }
 
-func (k Keychain) ToDID() DID {
-	address := DeriveAddress(k.Seed, 0, P256, SHA256)
+func (k Keychain) ToDID() (DID, error) {
+	address, err := DeriveAddress(k.Seed, 0, P256, SHA256)
+	if err != nil {
+		return DID{}, err
+	}
 
 	authentications := make([]string, 0)
 	verificationMethods := make([]DIDKeyMaterial, 0)
@@ -88,11 +92,18 @@ func (k Keychain) ToDID() DID {
 			splittedPath[i] = strings.ReplaceAll(splittedPath[i], "'", "")
 			purpose := splittedPath[i]
 			if purpose == "650" {
-				publicKey, _ := DeriveArchethicKeypair(k.Seed, service.DerivationPath, 0, service.Curve)
+				publicKey, _, err := DeriveArchethicKeypair(k.Seed, service.DerivationPath, 0, service.Curve)
+				if err != nil {
+					return DID{}, err
+				}
+				publicKeyJwk, err := KeyToJWK(publicKey, serviceName)
+				if err != nil {
+					return DID{}, err
+				}
 				verificationMethods = append(verificationMethods, DIDKeyMaterial{
 					Id:           fmt.Sprintf("did:archethic:%x#%s", address, serviceName),
 					KeyType:      "JsonWebKey2020",
-					PublicKeyJwk: KeyToJWK(publicKey, serviceName),
+					PublicKeyJwk: publicKeyJwk,
 					Controller:   fmt.Sprintf("did:archethic:%x", address),
 				})
 				authentications = append(authentications, fmt.Sprintf("did:archethic:%x#%s", address, serviceName))
@@ -107,7 +118,7 @@ func (k Keychain) ToDID() DID {
 		Id:                 fmt.Sprintf("did:archethic:%x", address),
 		Authentication:     authentications,
 		VerificationMethod: verificationMethods,
-	}
+	}, nil
 }
 
 func (d DID) ToJSON() []byte {
@@ -115,7 +126,7 @@ func (d DID) ToJSON() []byte {
 	return json
 }
 
-func KeyToJWK(publicKey []byte, keyId string) map[string]string {
+func KeyToJWK(publicKey []byte, keyId string) (map[string]string, error) {
 	curveID := publicKey[0]
 	keyBytes := publicKey[2:]
 	switch Curve(curveID) {
@@ -126,13 +137,13 @@ func KeyToJWK(publicKey []byte, keyId string) map[string]string {
 			"crv": "Ed25519",
 			"x":   pointToBase64Url(key),
 			"kid": keyId,
-		}
+		}, nil
 	case P256:
 
 		curve := elliptic.P256()
 		pubKeyX, pubKeyY := elliptic.Unmarshal(curve, keyBytes)
 		if pubKeyX == nil || pubKeyY == nil {
-			panic("can't unmarshall public key")
+			return nil, errors.New("can't unmarshall public key")
 		}
 		publicKey := ecdsa.PublicKey{Curve: curve, X: pubKeyX, Y: pubKeyY}
 
@@ -142,9 +153,9 @@ func KeyToJWK(publicKey []byte, keyId string) map[string]string {
 			"x":   pointToBase64Url(publicKey.X.Bytes()),
 			"y":   pointToBase64Url(publicKey.Y.Bytes()),
 			"kid": keyId,
-		}
+		}, nil
 	default:
-		panic("Unsupported elliptic curve")
+		return nil, errors.New("unsupported elliptic curve")
 	}
 }
 
@@ -182,17 +193,17 @@ func (k Keychain) toBytes() []byte {
 	return buf
 }
 
-func (k Keychain) DeriveKeypair(serviceName string, index uint8) ([]byte, []byte) {
+func (k Keychain) DeriveKeypair(serviceName string, index uint8) ([]byte, []byte, error) {
 	service, ok := k.Services[serviceName]
 
 	if !ok {
-		panic("Service doesn't exists in the keychain")
+		return nil, nil, errors.New("service doesn't exists in the keychain")
 	}
 
 	return DeriveArchethicKeypair(k.Seed, service.DerivationPath, index, service.Curve)
 }
 
-func DeriveArchethicKeypair(seed []byte, derivationPath string, index uint8, curve Curve) ([]byte, []byte) {
+func DeriveArchethicKeypair(seed []byte, derivationPath string, index uint8, curve Curve) ([]byte, []byte, error) {
 	indexedPath := replaceDerivationPathIndex(derivationPath, index)
 	h := sha256.New()
 	h.Write([]byte(indexedPath))
@@ -245,31 +256,46 @@ func DecodeKeychain(binaryInput []byte) *Keychain {
 	return k
 }
 
-func (k Keychain) DeriveAddress(serviceName string, index uint8) []byte {
+func (k Keychain) DeriveAddress(serviceName string, index uint8) ([]byte, error) {
 	service, ok := k.Services[serviceName]
 
 	if !ok {
-		panic("Service doesn't exists in the keychain")
+		return nil, errors.New("service doesn't exists in the keychain")
 	}
-	publicKey, _ := DeriveArchethicKeypair(k.Seed, service.DerivationPath, index, service.Curve)
+	publicKey, _, err := DeriveArchethicKeypair(k.Seed, service.DerivationPath, index, service.Curve)
+	if err != nil {
+		return nil, err
+	}
 
-	hashedPublicKey := Hash(publicKey, service.HashAlgo)
+	hashedPublicKey, err := Hash(publicKey, service.HashAlgo)
+	if err != nil {
+		return nil, err
+	}
 	result := make([]byte, 0)
 	result = append(result, byte(service.Curve))
 	result = append(result, hashedPublicKey...)
-	return result
+	return result, nil
 
 }
 
-func (k Keychain) BuildTransaction(transaction TransactionBuilder, serviceName string, index uint8) TransactionBuilder {
-	pubKey, privKey := k.DeriveKeypair(serviceName, index)
-	address := k.DeriveAddress(serviceName, index+1)
+func (k Keychain) BuildTransaction(transaction TransactionBuilder, serviceName string, index uint8) (TransactionBuilder, error) {
+	pubKey, privKey, err := k.DeriveKeypair(serviceName, index)
+	if err != nil {
+		return TransactionBuilder{}, err
+	}
+	address, err := k.DeriveAddress(serviceName, index+1)
+	if err != nil {
+		return TransactionBuilder{}, err
+	}
 	transaction.SetAddress(address)
 
 	payloadForPreviousSignature := transaction.previousSignaturePayload()
-	previousSignature := Sign(privKey, payloadForPreviousSignature)
+	previousSignature, err := Sign(privKey, payloadForPreviousSignature)
+	if err != nil {
+		return TransactionBuilder{}, err
+	}
 
 	transaction.SetPreviousSignatureAndPreviousPublicKey(previousSignature, pubKey)
 
-	return transaction
+	return transaction, nil
 }

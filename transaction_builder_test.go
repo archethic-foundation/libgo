@@ -102,9 +102,10 @@ func TestAddOwnership(t *testing.T) {
 }
 func TestAddUCOTransfer(t *testing.T) {
 	tx := TransactionBuilder{TxType: TransferType}
+	amount, _ := ToUint64(10.03, 8)
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-		ToUint64(10.03, 8),
+		amount,
 	)
 
 	if len(tx.Data.Ledger.Uco.Transfers) != 1 {
@@ -116,7 +117,7 @@ func TestAddUCOTransfer(t *testing.T) {
 		t.Errorf("expected to address %v, got %v", expectedTo, tx.Data.Ledger.Uco.Transfers[0].To)
 	}
 
-	expectedAmount := ToUint64(10.03, 8)
+	expectedAmount, _ := ToUint64(10.03, 8)
 	if tx.Data.Ledger.Uco.Transfers[0].Amount != expectedAmount {
 		t.Errorf("expected amount %d, got %d", expectedAmount, tx.Data.Ledger.Uco.Transfers[0].Amount)
 	}
@@ -125,10 +126,11 @@ func TestAddUCOTransfer(t *testing.T) {
 func TestAddTokenTransfer(t *testing.T) {
 
 	tx := TransactionBuilder{TxType: TransferType}
+	amount, _ := ToUint64(10.03, 8)
 	tx.AddTokenTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-		ToUint64(10.03, 8),
+		amount,
 		1,
 	)
 
@@ -146,7 +148,7 @@ func TestAddTokenTransfer(t *testing.T) {
 		t.Errorf("expected to token address %v, got %v", expectedTo, tx.Data.Ledger.Token.Transfers[0].TokenAddress)
 	}
 
-	expectedAmount := ToUint64(10.03, 8)
+	expectedAmount, _ := ToUint64(10.03, 8)
 	if tx.Data.Ledger.Token.Transfers[0].Amount != expectedAmount {
 		t.Errorf("expected amount %d, got %d", expectedAmount, tx.Data.Ledger.Token.Transfers[0].Amount)
 	}
@@ -181,21 +183,23 @@ func TestPreviousSignaturePayload(t *testing.T) {
 		},
 	)
 
+	amount, _ := ToUint64(0.202, 8)
+	amount2, _ := ToUint64(100, 8)
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-		ToUint64(0.202, 8))
+		amount)
 	tx.AddTokenTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
-		ToUint64(100, 8),
+		amount2,
 		1)
 	tx.SetCode(code)
 	tx.SetContent(content)
 	tx.AddRecipient(
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"))
 
-	publicKey, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
-	address := DeriveAddress([]byte("seed"), 1, ED25519, SHA256)
+	publicKey, _, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
+	address, _ := DeriveAddress([]byte("seed"), 1, ED25519, SHA256)
 
 	tx.Address = address
 	tx.PreviousPublicKey = publicKey
@@ -242,7 +246,8 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	// Nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(0.202, 8))...)
+	amount, _ = ToUint64(0.202, 8)
+	expectedBinary = append(expectedBinary, EncodeInt64(amount)...)
 
 	// Nb of byte to encode nb of Token transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
@@ -251,7 +256,8 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(100, 8))...)
+	amount, _ = ToUint64(100, 8)
+	expectedBinary = append(expectedBinary, EncodeInt64(amount)...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
@@ -301,9 +307,10 @@ func TestBuild(t *testing.T) {
 
 	ucoAddress, _ := hex.DecodeString("00001ff1733caa91336976ee7cef5aff6bb26c7682213b8e6770ab82272f966dac35")
 
+	amount, _ := ToUint64(10.0, 8)
 	tx.AddUcoTransfer(
 		ucoAddress,
-		ToUint64(10.0, 8),
+		amount,
 	)
 	tx.Build([]byte("seed"), 0, ED25519, SHA256)
 
@@ -354,13 +361,15 @@ func TestOriginSignaturePayload(t *testing.T) {
 		},
 	)
 
+	amount, _ := ToUint64(0.202, 8)
+	amount2, _ := ToUint64(100, 8)
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-		ToUint64(0.202, 8))
+		amount)
 	tx.AddTokenTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
-		ToUint64(100, 8),
+		amount2,
 		1)
 	tx.SetCode(code)
 	tx.SetContent(content)
@@ -371,7 +380,7 @@ func TestOriginSignaturePayload(t *testing.T) {
 
 	payload := tx.OriginSignaturePayload()
 
-	publicKey, privateKey := DeriveKeypair([]byte(seed), 0, P256)
+	publicKey, privateKey, _ := DeriveKeypair([]byte(seed), 0, P256)
 	Sign(privateKey, tx.PreviousPublicKey)
 
 	expectedBinary := make([]byte, 0)
@@ -416,7 +425,8 @@ func TestOriginSignaturePayload(t *testing.T) {
 	// Nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(0.202, 8))...)
+	amount, _ = ToUint64(0.202, 8)
+	expectedBinary = append(expectedBinary, EncodeInt64(amount)...)
 
 	// Nb of byte to encode nb of Token transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
@@ -425,7 +435,8 @@ func TestOriginSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	expectedBinary = append(expectedBinary, EncodeInt64(ToUint64(100, 8))...)
+	amount, _ = ToUint64(100, 8)
+	expectedBinary = append(expectedBinary, EncodeInt64(amount)...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
@@ -445,7 +456,7 @@ func TestOriginSignaturePayload(t *testing.T) {
 
 func TestOriginSign(t *testing.T) {
 
-	originPublicKey, originPrivateKey := DeriveKeypair([]byte("origin_seed"), 0, P256)
+	originPublicKey, originPrivateKey, _ := DeriveKeypair([]byte("origin_seed"), 0, P256)
 
 	tx := NewTransaction(TransferType)
 	tx.Build([]byte("seed"), 0, P256, SHA256)

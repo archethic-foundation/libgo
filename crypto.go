@@ -53,40 +53,43 @@ func Add(a, b int) int {
 }
 
 // Hash create a hash digest from the data with an hash algorithm identification prepending the digest
-func Hash(content []byte, hashAlgo HashAlgo) []byte {
-	digest := hash(content, hashAlgo)
-	return append([]byte{byte(hashAlgo)}, digest...)
+func Hash(content []byte, hashAlgo HashAlgo) ([]byte, error) {
+	digest, err := hash(content, hashAlgo)
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte{byte(hashAlgo)}, digest...), nil
 }
 
-func hash(content []byte, hashAlgo HashAlgo) []byte {
+func hash(content []byte, hashAlgo HashAlgo) ([]byte, error) {
 	switch hashAlgo {
 	case SHA256:
 		h := sha256.New()
 		h.Write(content)
-		return h.Sum(nil)
+		return h.Sum(nil), nil
 	case SHA512:
 		h := sha512.New()
 		h.Write(content)
-		return h.Sum(nil)
+		return h.Sum(nil), nil
 	case SHA3_256:
 		h := sha3.New256()
 		h.Write(content)
-		return h.Sum(nil)
+		return h.Sum(nil), nil
 	case SHA3_512:
 		h := sha3.New512()
 		h.Write(content)
-		return h.Sum(nil)
+		return h.Sum(nil), nil
 	case BLAKE2B:
 		h, _ := blake2b.New(64, nil)
 		h.Write(content)
-		return h.Sum(nil)
+		return h.Sum(nil), nil
 	default:
-		panic("Unsupported hash algorithm")
+		return nil, errors.New("unsupported hash algorithm")
 	}
 }
 
 // DeriveKeypair generate a keypair using a derivation function with a seed and an index. Each keys is prepending with a curve identification.
-func DeriveKeypair(seed []byte, index uint32, curve Curve) ([]byte, []byte) {
+func DeriveKeypair(seed []byte, index uint32, curve Curve) ([]byte, []byte, error) {
 	pvKey := derivePrivateKey(seed, index)
 	return GenerateDeterministicKeypair(pvKey, curve, SOFTWARE_ORIGIN_ID)
 }
@@ -114,20 +117,23 @@ func derivePrivateKey(seed []byte, index uint32) []byte {
 }
 
 // GenerateDeterministicKeypair generate a new keypair deterministically with a given private key, curve and origin id
-func GenerateDeterministicKeypair(pvKey []byte, curve Curve, originID OriginID) ([]byte, []byte) {
-	pubKey := getKeypair(pvKey, curve)
+func GenerateDeterministicKeypair(pvKey []byte, curve Curve, originID OriginID) ([]byte, []byte, error) {
+	pubKey, err := getKeypair(pvKey, curve)
+	if err != nil {
+		return nil, nil, err
+	}
 	keyMetadata := []byte{byte(curve), byte(originID)}
 
 	// ED25519 private keys are 64 bytes long (the public key is appended at the end)
 	if curve == ED25519 {
 		privateKey := append(keyMetadata, pvKey...)
 		privateKey = append(privateKey, pubKey...)
-		return append(keyMetadata, pubKey...), privateKey
+		return append(keyMetadata, pubKey...), privateKey, nil
 	}
-	return append(keyMetadata, pubKey...), append(keyMetadata, pvKey...)
+	return append(keyMetadata, pubKey...), append(keyMetadata, pvKey...), nil
 }
 
-func getKeypair(privateKey []byte, curve Curve) []byte {
+func getKeypair(privateKey []byte, curve Curve) ([]byte, error) {
 	switch curve {
 	case P256:
 		curve := elliptic.P256()
@@ -136,29 +142,35 @@ func getKeypair(privateKey []byte, curve Curve) []byte {
 		key.PublicKey.Curve = curve
 		key.PublicKey.X, key.PublicKey.Y = curve.ScalarBaseMult(privateKey)
 		result := elliptic.Marshal(curve, key.X, key.Y)
-		return result
+		return result, nil
 	case ED25519:
 		_, x, y, err := edwards.GenerateKey(bytes.NewReader(privateKey))
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		pub := edwards.NewPublicKey(x, y)
-		return pub.Serialize()
+		return pub.Serialize(), nil
 	case SECP256K1:
 		key, _ := secp256k1.PrivKeyFromBytes(privateKey)
-		return key.PubKey().SerializeUncompressed()
+		return key.PubKey().SerializeUncompressed(), nil
 	default:
-		panic("Unsupported elliptic curve")
+		return nil, errors.New("unsupported elliptic curve")
 	}
 }
 
-func DeriveAddress(seed []byte, index uint32, curve Curve, hashAlgo HashAlgo) []byte {
-	publicKey, _ := DeriveKeypair(seed, index, curve)
-	hashedPublicKey := Hash(publicKey, hashAlgo)
-	return append([]byte{byte(curve)}, hashedPublicKey...)
+func DeriveAddress(seed []byte, index uint32, curve Curve, hashAlgo HashAlgo) ([]byte, error) {
+	publicKey, _, err := DeriveKeypair(seed, index, curve)
+	if err != nil {
+		return nil, err
+	}
+	hashedPublicKey, err := Hash(publicKey, hashAlgo)
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte{byte(curve)}, hashedPublicKey...), nil
 }
 
-func Sign(privateKey []byte, data []byte) []byte {
+func Sign(privateKey []byte, data []byte) ([]byte, error) {
 
 	byteReader := bytes.NewReader(privateKey)
 	curve, _ := byteReader.ReadByte()
@@ -169,7 +181,7 @@ func Sign(privateKey []byte, data []byte) []byte {
 
 	switch Curve(curve) {
 	case ED25519:
-		return ed25519.Sign(pvKeyBytes, data)
+		return ed25519.Sign(pvKeyBytes, data), nil
 	case P256:
 		sha256Hash := sha256.Sum256(data)
 		curve := elliptic.P256()
@@ -181,19 +193,19 @@ func Sign(privateKey []byte, data []byte) []byte {
 
 		sig, err := ecdsa.SignASN1(rand.Reader, key, sha256Hash[:])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
-		return sig
+		return sig, nil
 	case SECP256K1:
 		sha256Hash := sha256.Sum256(data)
 		privKey, _ := secp256k1.PrivKeyFromBytes(pvKeyBytes)
 		sig, err := privKey.Sign(sha256Hash[:])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
-		return sig.Serialize()
+		return sig.Serialize(), nil
 	default:
-		panic("Unsupported elliptic curve")
+		return nil, errors.New("unsupported elliptic curve")
 	}
 }
 
@@ -228,11 +240,11 @@ func Verify(sig []byte, data []byte, publicKey []byte) (bool, error) {
 
 		return signature.Verify(sha256Hash[:], pubKey), nil
 	default:
-		return false, errors.New("Curve not supported")
+		return false, errors.New("curve not supported")
 	}
 }
 
-func EcEncrypt(data []byte, publicKey []byte) []byte {
+func EcEncrypt(data []byte, publicKey []byte) ([]byte, error) {
 
 	byteReader := bytes.NewReader(publicKey)
 	curve, _ := byteReader.ReadByte()
@@ -245,7 +257,7 @@ func EcEncrypt(data []byte, publicKey []byte) []byte {
 	case ED25519:
 		tempPublicKey, tempPrivateKey, err := ed25519.GenerateKey(nil)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		publicKey := new([32]byte)
@@ -258,60 +270,69 @@ func EcEncrypt(data []byte, publicKey []byte) []byte {
 		extra25519.PrivateKeyToCurve25519(tempPrivateKey2, (*[64]byte)(tempPrivateKey))
 
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		sharedKey, err := curve25519.X25519(tempPrivateKey2[:], publicKey[:])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		iv, aesKey := deriveSecret(sharedKey[:])
-		encrypted := aesAuthEncrypt(data, aesKey, iv)
+		encrypted, err := aesAuthEncrypt(data, aesKey, iv)
+		if err != nil {
+			return nil, err
+		}
 
-		return append(tempPublicKey2[:], encrypted...)
+		return append(tempPublicKey2[:], encrypted...), nil
 	case P256:
 
 		p256 := ecdh.Generic(elliptic.P256())
 		ec := elliptic.P256()
 		tempPrivateKey, tempPublicKey, err := p256.GenerateKey(rand.Reader)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		pubKeyX, pubKeyY := elliptic.Unmarshal(ec, puKeyBytes)
 		if pubKeyX == nil || pubKeyY == nil {
-			panic("can't unmarshall public key")
+			return nil, errors.New("can't unmarshall public key")
 		}
 		publicKey := ecdh.Point{X: pubKeyX, Y: pubKeyY}
 
 		sharedKey := p256.ComputeSecret(tempPrivateKey, publicKey)
 		iv, aesKey := deriveSecret(sharedKey)
-		encrypted := aesAuthEncrypt(data, aesKey, iv)
+		encrypted, err := aesAuthEncrypt(data, aesKey, iv)
+		if err != nil {
+			return nil, err
+		}
 
 		ecdsaPublicKey := tempPublicKey.(ecdh.Point)
 		result := elliptic.Marshal(ec, ecdsaPublicKey.X, ecdsaPublicKey.Y)
-		return append(result, encrypted...)
+		return append(result, encrypted...), nil
 	case SECP256K1:
 		tmpPriv, _ := secp256k1.GeneratePrivateKey()
 
 		publicKey, err := secp256k1.ParsePubKey(puKeyBytes)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		sharedKey := secp256k1.GenerateSharedSecret(tmpPriv, publicKey)
 
 		iv, aesKey := deriveSecret(sharedKey)
-		encrypted := aesAuthEncrypt(data, aesKey, iv)
+		encrypted, err := aesAuthEncrypt(data, aesKey, iv)
+		if err != nil {
+			return nil, err
+		}
 
-		return append(tmpPriv.PubKey().SerializeUncompressed(), encrypted...)
+		return append(tmpPriv.PubKey().SerializeUncompressed(), encrypted...), nil
 	default:
-		panic("Curve not supported")
+		return nil, errors.New("curve not supported")
 	}
 }
 
-func EcDecrypt(cipherText []byte, privateKey []byte) []byte {
+func EcDecrypt(cipherText []byte, privateKey []byte) ([]byte, error) {
 
 	byteReader := bytes.NewReader(privateKey)
 	curve, _ := byteReader.ReadByte()
@@ -330,7 +351,7 @@ func EcDecrypt(cipherText []byte, privateKey []byte) []byte {
 
 		sharedKey, err := curve25519.X25519(pvKey[:], publicKey)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		iv, aesKey := deriveSecret(sharedKey)
@@ -350,7 +371,7 @@ func EcDecrypt(cipherText []byte, privateKey []byte) []byte {
 
 		pubKeyX, pubKeyY := elliptic.Unmarshal(elliptic.P256(), publicKey)
 		if pubKeyX == nil || pubKeyY == nil {
-			panic("can't unmarshall public key")
+			return nil, errors.New("can't unmarshall public key")
 		}
 		publicKeyPoint := ecdh.Point{X: pubKeyX, Y: pubKeyY}
 
@@ -371,7 +392,7 @@ func EcDecrypt(cipherText []byte, privateKey []byte) []byte {
 		iv, aesKey := deriveSecret(sharedKey)
 		return aesAuthDecrypt(encryptedText, aesKey, iv)
 	default:
-		panic("Curve not supported")
+		return nil, errors.New("curve not supported")
 	}
 }
 
@@ -393,15 +414,15 @@ func deriveSecret(sharedKey []byte) ([]byte, []byte) {
 	return iv, aesKey
 }
 
-func aesAuthEncrypt(data []byte, aesKey []byte, iv []byte) []byte {
+func aesAuthEncrypt(data []byte, aesKey []byte, iv []byte) ([]byte, error) {
 	block, err := aes.NewCipher(aesKey)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
 	aesgcm, err := cipher.NewGCMWithNonceSize(block, len(iv))
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
 	ciphertext := aesgcm.Seal(nil, iv, data, nil)
@@ -409,19 +430,19 @@ func aesAuthEncrypt(data []byte, aesKey []byte, iv []byte) []byte {
 	// but we want the tag first
 	tag := ciphertext[len(ciphertext)-aesgcm.Overhead():]
 	ciphertext = append(tag, ciphertext[:len(ciphertext)-aesgcm.Overhead()]...)
-	return ciphertext
+	return ciphertext, nil
 }
 
-func aesAuthDecrypt(encrypted, aesKey, iv []byte) []byte {
+func aesAuthDecrypt(encrypted, aesKey, iv []byte) ([]byte, error) {
 	block, err := aes.NewCipher(aesKey)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
 	// Create a new GCM cipher with the block.
 	gcm, err := cipher.NewGCMWithNonceSize(block, len(iv))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	// the AES GCM lib expects the data first then the authentication tag
@@ -430,28 +451,31 @@ func aesAuthDecrypt(encrypted, aesKey, iv []byte) []byte {
 	// Decrypt the message.
 	plaintext, err := gcm.Open(nil, iv, encrypted, nil)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return plaintext
+	return plaintext, nil
 }
 
-func AesEncrypt(data, key []byte) []byte {
+func AesEncrypt(data, key []byte) ([]byte, error) {
 
 	iv := make([]byte, 12)
 	_, err := rand.Read(iv)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	encrypted := aesAuthEncrypt(data, key, iv)
+	encrypted, err := aesAuthEncrypt(data, key, iv)
+	if err != nil {
+		return nil, err
+	}
 	result := make([]byte, 0)
 
 	result = append(result, iv...)
-	return append(result, encrypted...)
+	return append(result, encrypted...), nil
 }
 
-func AesDecrypt(cipherText, key []byte) []byte {
+func AesDecrypt(cipherText, key []byte) ([]byte, error) {
 
 	byteReader := bytes.NewReader(cipherText)
 

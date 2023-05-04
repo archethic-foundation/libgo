@@ -68,7 +68,7 @@ func (ts *TransactionSender) AddOnTimeout(handler func(nbConfirmationReceived in
 	ts.onTimeout = append(ts.onTimeout, handler)
 }
 
-func (ts *TransactionSender) Unsubscribe(event string) {
+func (ts *TransactionSender) Unsubscribe(event string) error {
 	if event != "" {
 		switch event {
 		case "sent":
@@ -84,7 +84,7 @@ func (ts *TransactionSender) Unsubscribe(event string) {
 		case "timeout":
 			ts.onTimeout = []func(nbConfirmationReceived int){}
 		default:
-			panic(fmt.Sprintf("Event %s is not supported", event))
+			return fmt.Errorf("event %s is not supported", event)
 		}
 	} else {
 		ts.transactionErrorSubscription.CancelSubscription()
@@ -96,9 +96,10 @@ func (ts *TransactionSender) Unsubscribe(event string) {
 		ts.onError = []func(senderContext string, message string){}
 		ts.onTimeout = []func(nbConfirmationReceived int){}
 	}
+	return nil
 }
 
-func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmationThreshold, timeout int) {
+func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmationThreshold, timeout int) error {
 
 	done := make(chan bool)
 	var wg sync.WaitGroup
@@ -129,18 +130,18 @@ func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmatio
 
 	payload, err := tx.ToJSON()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	transactionUrl := ts.client.baseURL + "/transaction"
 	req, err := http.NewRequest("POST", transactionUrl, bytes.NewReader(payload))
 	if err != nil {
-		panic(err)
+		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	resp, err := ts.client.httpClient.Do(req)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	go ts.handleSend(timeout, resp, func(isFinished bool) {
 		if isFinished {
@@ -149,6 +150,7 @@ func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmatio
 	})
 
 	<-done
+	return nil
 }
 
 func (ts *TransactionSender) SubscribeTransactionError(transactionAddress string, readyHandler func(), handler func(TransactionErrorGQL)) {
@@ -163,21 +165,22 @@ func (ts *TransactionSender) SubscribeTransactionError(transactionAddress string
 	variables["address"] = transactionAddress
 
 	ts.transactionErrorSubscription = new(AbsintheSubscription)
-	ts.transactionErrorSubscription.GraphqlSubscription(ts.client.wsUrl, query, variables, readyHandler, func(data map[string]interface{}) {
+	ts.transactionErrorSubscription.GraphqlSubscription(ts.client.wsUrl, query, variables, readyHandler, func(data map[string]interface{}) error {
 		var response struct {
 			TransactionError TransactionErrorGQL
 		}
 
 		jsonStr, err := json.Marshal(data)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		if err := json.Unmarshal(jsonStr, &response); err != nil {
-			panic(err)
+			return err
 		}
 
 		handler(response.TransactionError)
+		return nil
 	})
 }
 
@@ -193,21 +196,22 @@ func (ts *TransactionSender) SubscribeTransactionConfirmed(transactionAddress st
 	variables["address"] = transactionAddress
 
 	ts.transactionConfirmedSubscription = new(AbsintheSubscription)
-	ts.transactionConfirmedSubscription.GraphqlSubscription(ts.client.wsUrl, query, variables, readyHandler, func(data map[string]interface{}) {
+	ts.transactionConfirmedSubscription.GraphqlSubscription(ts.client.wsUrl, query, variables, readyHandler, func(data map[string]interface{}) error {
 		var response struct {
 			TransactionConfirmed TransactionConfirmedGQL
 		}
 
 		jsonStr, err := json.Marshal(data)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		if err := json.Unmarshal(jsonStr, &response); err != nil {
-			panic(err)
+			return err
 		}
 
 		handler(response.TransactionConfirmed)
+		return nil
 	})
 }
 
@@ -251,10 +255,10 @@ func (ts *TransactionSender) handleError(context, reason string) {
 	}
 }
 
-func (ts *TransactionSender) handleSend(timeout int, response *http.Response, isFinishedHandler func(bool)) {
+func (ts *TransactionSender) handleSend(timeout int, response *http.Response, isFinishedHandler func(bool)) error {
 	respBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	if response.StatusCode >= 200 && response.StatusCode <= 299 {
@@ -276,7 +280,7 @@ func (ts *TransactionSender) handleSend(timeout int, response *http.Response, is
 		ts.transactionConfirmedSubscription.CancelSubscription()
 		var data map[string]interface{}
 		if err := json.Unmarshal([]byte(respBody), &data); err != nil {
-			panic(err)
+			return err
 		}
 
 		status, ok := data["status"].(string)
@@ -288,6 +292,7 @@ func (ts *TransactionSender) handleSend(timeout int, response *http.Response, is
 		}
 		isFinishedHandler(true)
 	}
+	return nil
 }
 
 type Timeout struct {

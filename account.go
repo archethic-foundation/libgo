@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 )
 
-func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) TransactionBuilder {
+func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) (TransactionBuilder, error) {
 	keychain := NewKeychain(seed)
 	keychain.AddService("uco", "m/650'/0/0", ED25519, SHA256)
 
@@ -15,25 +16,43 @@ func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) Transact
 
 	authorizedKeys := make([]AuthorizedKey, len(authorizedPublicKeys))
 	for i, key := range authorizedPublicKeys {
+		encryptedSecretKey, err := EcEncrypt(aesKey, key)
+		if err != nil {
+			return TransactionBuilder{}, err
+		}
 		authorizedKeys[i] = AuthorizedKey{
 			PublicKey:          key,
-			EncryptedSecretKey: EcEncrypt(aesKey, key),
+			EncryptedSecretKey: encryptedSecretKey,
 		}
 	}
 
 	tx := NewTransaction(KeychainType)
-	tx.SetContent(keychain.ToDID().ToJSON())
-	tx.AddOwnership(AesEncrypt(keychain.toBytes(), aesKey), authorizedKeys)
+	keychainToDid, err := keychain.ToDID()
+	if err != nil {
+		return TransactionBuilder{}, err
+	}
+	tx.SetContent(keychainToDid.ToJSON())
+	encryptedKeychain, err := AesEncrypt(keychain.toBytes(), aesKey)
+	if err != nil {
+		return TransactionBuilder{}, err
+	}
+	tx.AddOwnership(encryptedKeychain, authorizedKeys)
 	tx.Build(seed, 0, ED25519, SHA256)
-	return *tx
+	return *tx, nil
 }
 
-func NewAccessTransaction(seed []byte, keychainAddress []byte) TransactionBuilder {
+func NewAccessTransaction(seed []byte, keychainAddress []byte) (TransactionBuilder, error) {
 	aesKey := make([]byte, 32)
 	rand.Read(aesKey)
 
-	publicKey, _ := DeriveKeypair(seed, 0, ED25519)
-	encryptedSecretKey := EcEncrypt(aesKey, publicKey)
+	publicKey, _, err := DeriveKeypair(seed, 0, ED25519)
+	if err != nil {
+		return TransactionBuilder{}, err
+	}
+	encryptedSecretKey, err := EcEncrypt(aesKey, publicKey)
+	if err != nil {
+		return TransactionBuilder{}, err
+	}
 
 	authorizedKeys := []AuthorizedKey{
 		{
@@ -43,17 +62,30 @@ func NewAccessTransaction(seed []byte, keychainAddress []byte) TransactionBuilde
 	}
 
 	tx := NewTransaction(KeychainAccessType)
-	tx.AddOwnership(AesEncrypt(keychainAddress, aesKey), authorizedKeys)
+	encryptedKeychainAddress, err := AesEncrypt(keychainAddress, aesKey)
+	if err != nil {
+		return TransactionBuilder{}, err
+	}
+	tx.AddOwnership(encryptedKeychainAddress, authorizedKeys)
 	tx.Build(seed, 0, ED25519, SHA256)
-	return *tx
+	return *tx, nil
 }
 
-func GetKeychain(seed []byte, client APIClient) *Keychain {
-	publicKey, privateKey := DeriveKeypair(seed, 0, ED25519)
-	accessKeychainAddress := DeriveAddress(seed, 1, ED25519, SHA256)
-	accessOwnerships := client.GetTransactionOwnerships(hex.EncodeToString(accessKeychainAddress))
+func GetKeychain(seed []byte, client APIClient) (*Keychain, error) {
+	publicKey, privateKey, err := DeriveKeypair(seed, 0, ED25519)
+	if err != nil {
+		return nil, err
+	}
+	accessKeychainAddress, err := DeriveAddress(seed, 1, ED25519, SHA256)
+	if err != nil {
+		return nil, err
+	}
+	accessOwnerships, err := client.GetTransactionOwnerships(hex.EncodeToString(accessKeychainAddress))
+	if err != nil {
+		return nil, err
+	}
 	if len(accessOwnerships) == 0 {
-		panic("Keychain doesn't exist")
+		return nil, errors.New("keychain doesn't exist")
 	}
 	accessSecret := accessOwnerships[0].Secret
 	accessAuthorizedKeys := accessOwnerships[0].AuthorizedPublicKeys
@@ -65,10 +97,19 @@ func GetKeychain(seed []byte, client APIClient) *Keychain {
 		}
 	}
 
-	accessKey := EcDecrypt(accessSecretKey, privateKey)
-	keychainAddress := AesDecrypt(accessSecret, accessKey)
+	accessKey, err := EcDecrypt(accessSecretKey, privateKey)
+	if err != nil {
+		return nil, err
+	}
+	keychainAddress, err := AesDecrypt(accessSecret, accessKey)
+	if err != nil {
+		return nil, err
+	}
 
-	keychainOwnerships := client.GetLastTransactionOwnerships(hex.EncodeToString(keychainAddress))
+	keychainOwnerships, err := client.GetLastTransactionOwnerships(hex.EncodeToString(keychainAddress))
+	if err != nil {
+		return nil, err
+	}
 
 	keychainSecret := keychainOwnerships[0].Secret
 	keychainAuthorizedKeys := keychainOwnerships[0].AuthorizedPublicKeys
@@ -79,6 +120,13 @@ func GetKeychain(seed []byte, client APIClient) *Keychain {
 			keychainSecretKey = authKey.EncryptedSecretKey
 		}
 	}
-	keychainKey := EcDecrypt(keychainSecretKey, privateKey)
-	return DecodeKeychain(AesDecrypt(keychainSecret, keychainKey))
+	keychainKey, err := EcDecrypt(keychainSecretKey, privateKey)
+	if err != nil {
+		return nil, err
+	}
+	encryptedKeychainSecret, err := AesDecrypt(keychainSecret, keychainKey)
+	if err != nil {
+		return nil, err
+	}
+	return DecodeKeychain(encryptedKeychainSecret), nil
 }
