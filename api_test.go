@@ -43,7 +43,7 @@ func TestGetNearestEndpoints(t *testing.T) {
 		}),
 	})
 
-	result := client.GetNearestEndpoints()
+	result, _ := client.GetNearestEndpoints()
 	if result.NearestEndpoints[0].Port != 4000 {
 		t.Errorf("Error when getting GetNearestEndpoints.Port expected %d but got %d", 4000, result.NearestEndpoints[0].Port)
 	}
@@ -77,7 +77,7 @@ func TestGetStorageNoncePublicKey(t *testing.T) {
 		}),
 	})
 
-	result := client.GetStorageNoncePublicKey()
+	result, _ := client.GetStorageNoncePublicKey()
 	expectedKey := "0001E562F8513ECFAB15920D70848CD63CCEF9CC798696C4ED2DE03553238A7654A4"
 	if result != expectedKey {
 		t.Errorf("Error when getting GetStorageNoncePublicKey expected %s but got %s", expectedKey, result)
@@ -132,7 +132,7 @@ func TestGetOracleData(t *testing.T) {
 		}),
 	})
 
-	result := client.GetOracleData()
+	result, _ := client.GetOracleData()
 	if result.Services.Uco.Eur != 0.07653 {
 		t.Errorf("Error when getting TestGetOracleData expected %f but got %f", 0.07653, result.Services.Uco.Eur)
 	}
@@ -169,7 +169,7 @@ func TestGetOracleDataWithTimestamp(t *testing.T) {
 		}),
 	})
 
-	result := client.GetOracleData(1678109849)
+	result, _ := client.GetOracleData(1678109849)
 	if result.Services.Uco.Eur != 0.07653 {
 		t.Errorf("Error when getting TestGetOracleData expected %f but got %f", 0.07653, result.Services.Uco.Eur)
 	}
@@ -207,7 +207,7 @@ func TestGetToken(t *testing.T) {
 		}),
 	})
 
-	result := client.GetToken("1234")
+	result, _ := client.GetToken("1234")
 	expectedGenesis, _ := hex.DecodeString("0000D6979F125A91465E29A12F66AE40FA454A2AD6CE3BB40099DBDDFFAF586E195A")
 	if !bytes.Equal(result.Genesis, expectedGenesis) {
 		t.Errorf("Error when getting GetToken expected genesis %s but got %s", expectedGenesis, result.Genesis)

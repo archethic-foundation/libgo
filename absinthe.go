@@ -12,7 +12,7 @@ type AbsintheSubscription struct {
 	ref    phx.Ref
 }
 
-func (a *AbsintheSubscription) GraphqlSubscription(wsUrl, query string, variables map[string]string, readyHandler func(), handler func(map[string]interface{})) {
+func (a *AbsintheSubscription) GraphqlSubscription(wsUrl, query string, variables map[string]string, readyHandler func(), handler func(map[string]interface{}) error) {
 	endPoint, _ := url.Parse(wsUrl)
 
 	// Create a new phx.Socket

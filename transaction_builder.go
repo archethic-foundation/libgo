@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"math"
 )
 
@@ -288,17 +289,32 @@ func (t *TransactionBuilder) AddOwnership(secret []byte, authorizedKeys []Author
 	})
 }
 
-func (t *TransactionBuilder) Build(seed []byte, index uint32, curve Curve, hashAlgo HashAlgo) {
-	publicKey, privateKey := DeriveKeypair(seed, index, curve)
-	address := DeriveAddress(seed, index+1, curve, hashAlgo)
+func (t *TransactionBuilder) Build(seed []byte, index uint32, curve Curve, hashAlgo HashAlgo) error {
+	publicKey, privateKey, err := DeriveKeypair(seed, index, curve)
+	if err != nil {
+		return err
+	}
+	address, err := DeriveAddress(seed, index+1, curve, hashAlgo)
+	if err != nil {
+		return err
+	}
 
 	t.Address = address
 	t.PreviousPublicKey = publicKey
-	t.PreviousSignature = Sign(privateKey, t.previousSignaturePayload())
+	t.PreviousSignature, err = Sign(privateKey, t.previousSignaturePayload())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (t *TransactionBuilder) OriginSign(originPrivateKey []byte) {
-	t.OriginSignature = Sign(originPrivateKey, t.OriginSignaturePayload())
+func (t *TransactionBuilder) OriginSign(originPrivateKey []byte) error {
+	originSignature, err := Sign(originPrivateKey, t.OriginSignaturePayload())
+	t.OriginSignature = originSignature
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (t TransactionBuilder) previousSignaturePayload() []byte {
@@ -407,15 +423,15 @@ func convertToMinimumBytes(length int) (int, []byte) {
 	return size, bytes
 }
 
-func ToUint64(number float64, decimals int) uint64 {
+func ToUint64(number float64, decimals int) (uint64, error) {
 	if decimals < 0 {
-		panic("'decimals' must be a non-negative integer")
+		return 0, errors.New("'decimals' must be a non-negative integer")
 	}
 
 	factor := math.Pow10(decimals)
 	result := uint64(number * factor)
 
-	return result
+	return result, nil
 }
 
 func (t *TransactionBuilder) ToJSON() ([]byte, error) {
@@ -467,10 +483,14 @@ func (t *TransactionBuilder) ToJSON() ([]byte, error) {
 		},
 		"recipients": recipients,
 	}
+	txType, err := t.TxType.String()
+	if err != nil {
+		return nil, err
+	}
 	m := map[string]interface{}{
 		"version":           t.Version,
 		"address":           hex.EncodeToString(t.Address),
-		"type":              t.TxType.String(),
+		"type":              txType,
 		"data":              data,
 		"previousPublicKey": hex.EncodeToString(t.PreviousPublicKey),
 		"previousSignature": hex.EncodeToString(t.PreviousSignature),
@@ -482,26 +502,26 @@ func (t *TransactionBuilder) ToJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-func (t TransactionType) String() string {
+func (t TransactionType) String() (string, error) {
 	switch t {
 	case KeychainAccessType:
-		return "keychain_access"
+		return "keychain_access", nil
 	case KeychainType:
-		return "keychain"
+		return "keychain", nil
 	case TransferType:
-		return "transfer"
+		return "transfer", nil
 	case HostingType:
-		return "hosting"
+		return "hosting", nil
 	case TokenType:
-		return "token"
+		return "token", nil
 	case DataType:
-		return "data"
+		return "data", nil
 	case ContractType:
-		return "contract"
+		return "contract", nil
 	case CodeProposalType:
-		return "code_proposal"
+		return "code_proposal", nil
 	case CodeApprovalType:
-		return "code_approval"
+		return "code_approval", nil
 	}
-	panic("Unknown transaction type")
+	return "", errors.New("unknown transaction type")
 }

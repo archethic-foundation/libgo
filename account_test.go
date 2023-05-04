@@ -18,7 +18,7 @@ func TestCreateKeychainTransaction(t *testing.T) {
 		pubKey,
 	}
 
-	tx := NewKeychainTransaction([]byte("myseed"), authorizedPublicKeys)
+	tx, _ := NewKeychainTransaction([]byte("myseed"), authorizedPublicKeys)
 
 	expectedKeychain := NewKeychain([]byte("myseed"))
 	expectedKeychain.AddService("uco", "m/650'/0/0", ED25519, SHA256)
@@ -27,8 +27,9 @@ func TestCreateKeychainTransaction(t *testing.T) {
 		t.Errorf("Error with type expected %d but got %d", KeychainType, tx.TxType)
 	}
 
-	if !reflect.DeepEqual(expectedKeychain.ToDID().ToJSON(), tx.Data.Content) {
-		t.Errorf("Error with content expected %s but got %s", tx.Data.Content, expectedKeychain.ToDID().ToJSON())
+	expectedKeychainToDid, _ := expectedKeychain.ToDID()
+	if !reflect.DeepEqual(expectedKeychainToDid.ToJSON(), tx.Data.Content) {
+		t.Errorf("Error with content expected %s but got %s", tx.Data.Content, expectedKeychainToDid.ToJSON())
 	}
 
 	if len(tx.Data.Ownerships) != 1 {
@@ -45,8 +46,8 @@ func TestCreateKeychainTransaction(t *testing.T) {
 
 func TestCreateNewAccessKeychainTransaction(t *testing.T) {
 	keychainAddress, _ := hex.DecodeString("000161d6cd8da68207bd01198909c139c130a3df3a8bd20f4bacb123c46354ccd52c")
-	publicKey, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
-	tx := NewAccessTransaction([]byte("seed"), keychainAddress)
+	publicKey, _, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
+	tx, _ := NewAccessTransaction([]byte("seed"), keychainAddress)
 
 	if tx.TxType != KeychainAccessType {
 		t.Errorf("Error with type expected %d but got %d", KeychainType, tx.TxType)
@@ -66,9 +67,9 @@ func TestCreateNewAccessKeychainTransaction(t *testing.T) {
 func TestShouldGetKeychain(t *testing.T) {
 	client := NewAPIClient("http://localhost:4000")
 
-	publicKey, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
-	keychainTx := NewKeychainTransaction([]byte("myseed"), [][]byte{publicKey})
-	accessTx := NewAccessTransaction([]byte("seed"), keychainTx.Address)
+	publicKey, _, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
+	keychainTx, _ := NewKeychainTransaction([]byte("myseed"), [][]byte{publicKey})
+	accessTx, _ := NewAccessTransaction([]byte("seed"), keychainTx.Address)
 
 	client.InjectHTTPClient(&http.Client{
 		Transport: MockRoundTripper(func(r *http.Request) *http.Response {
@@ -150,7 +151,7 @@ func TestShouldGetKeychain(t *testing.T) {
 		}),
 	})
 
-	keychain := GetKeychain([]byte("seed"), *client)
+	keychain, _ := GetKeychain([]byte("seed"), *client)
 	if len(keychain.Services) != 1 {
 		t.Errorf("Wrong number of services: expected 1 got %d", len(keychain.Services))
 	}

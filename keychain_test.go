@@ -11,10 +11,10 @@ import (
 func TestKeychainToDID(t *testing.T) {
 	seed := []byte("abcdefghijklmnopqrstuvwxyz")
 	keychain := NewKeychain(seed)
-	publicKey, _ := keychain.DeriveKeypair("uco", 0)
-	address := DeriveAddress(seed, 0, keychain.Services["uco"].Curve, keychain.Services["uco"].HashAlgo)
+	publicKey, _, _ := keychain.DeriveKeypair("uco", 0)
+	address, _ := DeriveAddress(seed, 0, keychain.Services["uco"].Curve, keychain.Services["uco"].HashAlgo)
 
-	json := keychain.ToDID()
+	json, _ := keychain.ToDID()
 	id := json.Id
 	verificationMethod := json.VerificationMethod
 
@@ -22,11 +22,12 @@ func TestKeychainToDID(t *testing.T) {
 		t.Errorf("Unexpected id. Expected did:archethic:%s, got %s", address, id)
 	}
 
+	publicKeyJwk, _ := KeyToJWK(publicKey, "uco")
 	expected := []DIDKeyMaterial{
 		{
 			Id:           fmt.Sprintf("%s#uco", id),
 			KeyType:      "JsonWebKey2020",
-			PublicKeyJwk: KeyToJWK(publicKey, "uco"),
+			PublicKeyJwk: publicKeyJwk,
 		},
 	}
 
@@ -110,15 +111,16 @@ func TestBuildTransaction(t *testing.T) {
 	}}
 
 	tx := TransactionBuilder{TxType: TransferType}
+	amount, _ := ToUint64(10.0, 8)
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
-		ToUint64(10.0, 8),
+		amount,
 	)
 
-	tx = keychain.BuildTransaction(tx, "uco", 0)
+	tx, _ = keychain.BuildTransaction(tx, "uco", 0)
 
-	expectedPreviousPublicKey, _ := keychain.DeriveKeypair("uco", 0)
-	expectedAddress := keychain.DeriveAddress("uco", 1)
+	expectedPreviousPublicKey, _, _ := keychain.DeriveKeypair("uco", 0)
+	expectedAddress, _ := keychain.DeriveAddress("uco", 1)
 
 	if !reflect.DeepEqual(tx.Address, expectedAddress) {
 		t.Errorf("expected address %v, got %v", expectedAddress, tx.Address)
