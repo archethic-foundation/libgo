@@ -28,6 +28,7 @@ func TestKeychainToDID(t *testing.T) {
 			Id:           fmt.Sprintf("%s#uco", id),
 			KeyType:      "JsonWebKey2020",
 			PublicKeyJwk: publicKeyJwk,
+			Controller:   fmt.Sprintf("did:archethic:%x", address),
 		},
 	}
 
@@ -110,14 +111,14 @@ func TestBuildTransaction(t *testing.T) {
 		},
 	}}
 
-	tx := TransactionBuilder{TxType: TransferType}
+	tx := &TransactionBuilder{TxType: TransferType}
 	amount, _ := ToUint64(10.0, 8)
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		amount,
 	)
 
-	tx, _ = keychain.BuildTransaction(tx, "uco", 0)
+	_ = keychain.BuildTransaction(tx, "uco", 0)
 
 	expectedPreviousPublicKey, _, _ := keychain.DeriveKeypair("uco", 0)
 	expectedAddress, _ := keychain.DeriveAddress("uco", 1)

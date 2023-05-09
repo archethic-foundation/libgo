@@ -77,10 +77,10 @@ func (k *Keychain) AddService(name string, derivationPath string, curve Curve, h
 	}
 }
 
-func (k Keychain) ToDID() (DID, error) {
+func (k Keychain) ToDID() (*DID, error) {
 	address, err := DeriveAddress(k.Seed, 0, P256, SHA256)
 	if err != nil {
-		return DID{}, err
+		return nil, err
 	}
 
 	authentications := make([]string, 0)
@@ -94,11 +94,11 @@ func (k Keychain) ToDID() (DID, error) {
 			if purpose == "650" {
 				publicKey, _, err := DeriveArchethicKeypair(k.Seed, service.DerivationPath, 0, service.Curve)
 				if err != nil {
-					return DID{}, err
+					return nil, err
 				}
 				publicKeyJwk, err := KeyToJWK(publicKey, serviceName)
 				if err != nil {
-					return DID{}, err
+					return nil, err
 				}
 				verificationMethods = append(verificationMethods, DIDKeyMaterial{
 					Id:           fmt.Sprintf("did:archethic:%x#%s", address, serviceName),
@@ -111,7 +111,7 @@ func (k Keychain) ToDID() (DID, error) {
 		}
 	}
 
-	return DID{
+	return &DID{
 		Context: []string{
 			"https://www.w3.org/ns/did/v1",
 		},
@@ -278,24 +278,24 @@ func (k Keychain) DeriveAddress(serviceName string, index uint8) ([]byte, error)
 
 }
 
-func (k Keychain) BuildTransaction(transaction TransactionBuilder, serviceName string, index uint8) (TransactionBuilder, error) {
+func (k Keychain) BuildTransaction(transaction *TransactionBuilder, serviceName string, index uint8) error {
 	pubKey, privKey, err := k.DeriveKeypair(serviceName, index)
 	if err != nil {
-		return TransactionBuilder{}, err
+		return err
 	}
 	address, err := k.DeriveAddress(serviceName, index+1)
 	if err != nil {
-		return TransactionBuilder{}, err
+		return err
 	}
 	transaction.SetAddress(address)
 
 	payloadForPreviousSignature := transaction.previousSignaturePayload()
 	previousSignature, err := Sign(privKey, payloadForPreviousSignature)
 	if err != nil {
-		return TransactionBuilder{}, err
+		return err
 	}
 
 	transaction.SetPreviousSignatureAndPreviousPublicKey(previousSignature, pubKey)
 
-	return transaction, nil
+	return nil
 }
