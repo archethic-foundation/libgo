@@ -28,8 +28,8 @@ type TransactionSender struct {
 	transactionConfirmedSubscription *AbsintheSubscription
 }
 
-func NewTransactionSender(client *APIClient) TransactionSender {
-	return TransactionSender{
+func NewTransactionSender(client *APIClient) *TransactionSender {
+	return &TransactionSender{
 		client,
 		[]func(){},
 		[]func(nbConfirmations, maxConfirmations int){},
