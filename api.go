@@ -86,7 +86,7 @@ type TokenGQL struct {
 	Decimals   int
 }
 
-type OracleDataWithTimestampGQL struct {
+type OracleData struct {
 	Timestamp Timestamp
 	Services  struct {
 		Uco struct {
@@ -207,27 +207,27 @@ func (c *APIClient) GetTransactionFee(tx *TransactionBuilder) (Fee, error) {
 
 	payload, err := tx.ToJSON()
 	if err != nil {
-		return nil, err
+		return Fee{}, err
 	}
 	transactionFeeUrl := c.baseURL + "/transaction_fee"
 	req, err := http.NewRequest("POST", transactionFeeUrl, bytes.NewReader(payload))
 	if err != nil {
-		return nil, err
+		return Fee{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return Fee{}, err
 	}
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return Fee{}, err
 	}
 
 	var fee Fee
 	json.Unmarshal(respBody, &fee)
-	return &fee, nil
+	return fee, nil
 }
 
 func (c *APIClient) GetTransactionOwnerships(address string) ([]Ownership, error) {
@@ -256,32 +256,46 @@ func (c *APIClient) GetLastTransactionOwnerships(address string) ([]Ownership, e
 	if err != nil {
 		return nil, err
 	}
-	result := make(Ownerships, len(query.LastTransaction.Data.Ownerships))
-	for i, ownership := range query.LastTransaction.Data.Ownerships {
-		result[i].Secret, err = hex.DecodeString(string(ownership.Secret))
+
+	return decodeOwnerships(query.LastTransaction.Data.Ownerships)
+}
+
+func decodeOwnerships(queryOwnerships []OwnershipGQL) ([]Ownership, error) {
+
+	ownerships := make([]Ownership, len(queryOwnerships))
+	for i, ownership := range queryOwnerships {
+		secret, err := hex.DecodeString(string(ownership.Secret))
 		if err != nil {
 			return nil, err
 		}
-		result[i].AuthorizedPublicKeys = make([]struct {
-			EncryptedSecretKey []byte
-			PublicKey          []byte
-		}, len(ownership.AuthorizedPublicKeys))
+		authorizedKeys := make([]AuthorizedKey, len(ownership.AuthorizedPublicKeys))
+
 		for j, authorizedPublicKey := range ownership.AuthorizedPublicKeys {
-			result[i].AuthorizedPublicKeys[j].PublicKey, err = hex.DecodeString(string(authorizedPublicKey.PublicKey))
+			publicKey, err := hex.DecodeString(string(authorizedPublicKey.PublicKey))
 			if err != nil {
 				return nil, err
 			}
-			result[i].AuthorizedPublicKeys[j].EncryptedSecretKey, err = hex.DecodeString(string(authorizedPublicKey.EncryptedSecretKey))
+			encryptedSecretKey, err := hex.DecodeString(string(authorizedPublicKey.EncryptedSecretKey))
 			if err != nil {
 				return nil, err
 			}
+
+			authorizedKeys[j] = AuthorizedKey{
+				PublicKey:          publicKey,
+				EncryptedSecretKey: encryptedSecretKey,
+			}
+		}
+
+		ownerships[i] = Ownership{
+			Secret:         secret,
+			AuthorizedKeys: authorizedKeys,
 		}
 	}
 
-	return &result, nil
+	return ownerships, nil
 }
 
-func (c *APIClient) GetToken(address string) (*Token, error) {
+func (c *APIClient) GetToken(address string) (Token, error) {
 
 	var query struct {
 		Token TokenGQL `graphql:"token(address: $address)"`
@@ -292,15 +306,15 @@ func (c *APIClient) GetToken(address string) (*Token, error) {
 	}
 	err := c.graphqlClient.Query(context.Background(), &query, variables)
 	if err != nil {
-		return nil, err
+		return Token{}, err
 	}
 
 	genesisAddress, err := hex.DecodeString(string(query.Token.Genesis))
 	if err != nil {
-		return nil, err
+		return Token{}, err
 	}
 
-	return &Token{
+	return Token{
 		Genesis:    genesisAddress,
 		Name:       query.Token.Name,
 		Symbol:     query.Token.Symbol,
@@ -339,35 +353,35 @@ func (c *APIClient) AddOriginKey(originPublicKey, certificate string) error {
 	return nil
 }
 
-func (c *APIClient) GetOracleData(timestamp ...int64) (*OracleDataWithTimestampGQL, error) {
+func (c *APIClient) GetOracleData(timestamp ...int64) (OracleData, error) {
 
 	if timestamp == nil {
 
-		var query struct{ OracleData OracleDataWithTimestampGQL }
+		var query struct{ OracleData OracleData }
 		err := c.graphqlClient.Query(context.Background(), &query, nil)
 		if err != nil {
-			return nil, err
+			return OracleData{}, err
 		}
 
-		return &query.OracleData, nil
+		return query.OracleData, nil
 
 	} else {
 
 		var query struct {
-			OracleData OracleDataWithTimestampGQL `graphql:"oracleData(timestamp: $timestamp)"`
+			OracleData OracleData `graphql:"oracleData(timestamp: $timestamp)"`
 		}
 		variables := map[string]interface{}{
 			"timestamp": Timestamp(timestamp[0]),
 		}
 		err := c.graphqlClient.Query(context.Background(), &query, variables)
 		if err != nil {
-			return nil, err
+			return OracleData{}, err
 		}
-		return &query.OracleData, nil
+		return query.OracleData, nil
 	}
 }
 
-func (c *APIClient) GetBalance(address string) (*Balance, error) {
+func (c *APIClient) GetBalance(address string) (Balance, error) {
 
 	var query struct {
 		Balance BalanceGQL `graphql:"balance(address: $address)"`
@@ -378,7 +392,7 @@ func (c *APIClient) GetBalance(address string) (*Balance, error) {
 	}
 	err := c.graphqlClient.Query(context.Background(), &query, variables)
 	if err != nil {
-		return nil, err
+		return Balance{}, err
 	}
 
 	tokens := make([]struct {
@@ -390,18 +404,18 @@ func (c *APIClient) GetBalance(address string) (*Balance, error) {
 	for i, token := range query.Balance.Token {
 		tokens[i].Address, err = hex.DecodeString(string(token.Address))
 		if err != nil {
-			return nil, err
+			return Balance{}, err
 		}
 		tokens[i].Amount = token.Amount
 		tokens[i].TokenId = token.TokenId
 	}
-	return &Balance{
+	return Balance{
 		Uco:   query.Balance.Uco,
 		Token: tokens,
 	}, nil
 }
 
-func (c *APIClient) SubscribeToOracleUpdates(handler func(OracleDataWithTimestampGQL)) {
+func (c *APIClient) SubscribeToOracleUpdates(handler func(OracleData)) {
 	query := `subscription{
 				oracleUpdate{
 					services{
@@ -413,7 +427,7 @@ func (c *APIClient) SubscribeToOracleUpdates(handler func(OracleDataWithTimestam
 	subscription := new(AbsintheSubscription)
 	subscription.GraphqlSubscription(c.wsUrl, query, nil, nil, func(data map[string]interface{}) error {
 		var response struct {
-			OracleUpdate OracleDataWithTimestampGQL
+			OracleUpdate OracleData
 		}
 
 		jsonStr, err := json.Marshal(data)
