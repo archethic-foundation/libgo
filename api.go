@@ -31,15 +31,7 @@ type Fee struct {
 	}
 }
 
-type Ownerships []struct {
-	Secret               []byte
-	AuthorizedPublicKeys []struct {
-		EncryptedSecretKey []byte
-		PublicKey          []byte
-	}
-}
-
-type OwnershipsGQL []struct {
+type OwnershipGQL struct {
 	Secret               Hex
 	AuthorizedPublicKeys []struct {
 		EncryptedSecretKey Hex
@@ -50,7 +42,7 @@ type OwnershipsGQL []struct {
 type TransactionOwnershipsGQL struct {
 	Transaction struct {
 		Data struct {
-			Ownerships OwnershipsGQL
+			Ownerships []OwnershipGQL
 		}
 	} `graphql:"transaction(address: $address)"`
 }
@@ -58,7 +50,7 @@ type TransactionOwnershipsGQL struct {
 type LastTransactionOwnershipsGQL struct {
 	LastTransaction struct {
 		Data struct {
-			Ownerships OwnershipsGQL
+			Ownerships []OwnershipGQL
 		}
 	} `graphql:"lastTransaction(address: $address)"`
 }
@@ -211,7 +203,7 @@ func (c *APIClient) GetStorageNoncePublicKey() (string, error) {
 	return query.SharedSecrets.StorageNoncePublicKey, nil
 }
 
-func (c *APIClient) GetTransactionFee(tx *TransactionBuilder) (*Fee, error) {
+func (c *APIClient) GetTransactionFee(tx *TransactionBuilder) (Fee, error) {
 
 	payload, err := tx.ToJSON()
 	if err != nil {
@@ -238,7 +230,7 @@ func (c *APIClient) GetTransactionFee(tx *TransactionBuilder) (*Fee, error) {
 	return &fee, nil
 }
 
-func (c *APIClient) GetTransactionOwnerships(address string) (*Ownerships, error) {
+func (c *APIClient) GetTransactionOwnerships(address string) ([]Ownership, error) {
 
 	var query TransactionOwnershipsGQL
 
@@ -249,32 +241,11 @@ func (c *APIClient) GetTransactionOwnerships(address string) (*Ownerships, error
 	if err != nil {
 		return nil, err
 	}
-	result := make(Ownerships, len(query.Transaction.Data.Ownerships))
-	for i, ownership := range query.Transaction.Data.Ownerships {
-		result[i].Secret, err = hex.DecodeString(string(ownership.Secret))
-		if err != nil {
-			return nil, err
-		}
-		result[i].AuthorizedPublicKeys = make([]struct {
-			EncryptedSecretKey []byte
-			PublicKey          []byte
-		}, len(ownership.AuthorizedPublicKeys))
-		for j, authorizedPublicKey := range ownership.AuthorizedPublicKeys {
-			result[i].AuthorizedPublicKeys[j].PublicKey, err = hex.DecodeString(string(authorizedPublicKey.PublicKey))
-			if err != nil {
-				return nil, err
-			}
-			result[i].AuthorizedPublicKeys[j].EncryptedSecretKey, err = hex.DecodeString(string(authorizedPublicKey.EncryptedSecretKey))
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
 
-	return &result, nil
+	return decodeOwnerships(query.Transaction.Data.Ownerships)
 }
 
-func (c *APIClient) GetLastTransactionOwnerships(address string) (*Ownerships, error) {
+func (c *APIClient) GetLastTransactionOwnerships(address string) ([]Ownership, error) {
 
 	var query LastTransactionOwnershipsGQL
 
