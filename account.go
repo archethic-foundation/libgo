@@ -84,11 +84,11 @@ func GetKeychain(seed []byte, client APIClient) (*Keychain, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(*accessOwnerships) == 0 {
+	if len(accessOwnerships) == 0 {
 		return nil, errors.New("keychain doesn't exist")
 	}
-	accessSecret := (*accessOwnerships)[0].Secret
-	accessAuthorizedKeys := (*accessOwnerships)[0].AuthorizedPublicKeys
+	accessSecret := accessOwnerships[0].Secret
+	accessAuthorizedKeys := accessOwnerships[0].AuthorizedKeys
 
 	var accessSecretKey []byte
 	for _, authKey := range accessAuthorizedKeys {
@@ -111,8 +111,8 @@ func GetKeychain(seed []byte, client APIClient) (*Keychain, error) {
 		return nil, err
 	}
 
-	keychainSecret := (*keychainOwnerships)[0].Secret
-	keychainAuthorizedKeys := (*keychainOwnerships)[0].AuthorizedPublicKeys
+	keychainSecret := keychainOwnerships[0].Secret
+	keychainAuthorizedKeys := keychainOwnerships[0].AuthorizedKeys
 
 	var keychainSecretKey []byte
 	for _, authKey := range keychainAuthorizedKeys {

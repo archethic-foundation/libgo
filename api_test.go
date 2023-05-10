@@ -2,7 +2,10 @@ package archethic
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"reflect"
@@ -221,5 +224,67 @@ func TestGetToken(t *testing.T) {
 	expectedSupply := 3340000000000000
 	if result.Supply != expectedSupply {
 		t.Errorf("Error when getting GetToken expected supply %v but got %v", expectedSupply, result.Supply)
+	}
+}
+
+func TestGetTransactionOwnerships(t *testing.T) {
+
+	address, _ := DeriveAddress([]byte("seed"), 0, ED25519, SHA256)
+
+	client := NewAPIClient("http://localhost:4000")
+	client.InjectHTTPClient(&http.Client{
+		Transport: MockRoundTripper(func(r *http.Request) *http.Response {
+			aesKey := make([]byte, 32)
+			rand.Read(aesKey)
+
+			publicKey, _, err := DeriveKeypair([]byte("abc"), 0, ED25519)
+			if err != nil {
+				t.Error(err)
+			}
+			encryptedSecretKey, err := EcEncrypt(aesKey, publicKey)
+			if err != nil {
+				t.Error(err)
+			}
+
+			authorizedKeys := []struct {
+				EncryptedSecretKey string
+				PublicKey          string
+			}{
+				{
+					PublicKey:          hex.EncodeToString(publicKey),
+					EncryptedSecretKey: hex.EncodeToString(encryptedSecretKey),
+				},
+			}
+
+			secret, err := AesEncrypt([]byte("hello"), aesKey)
+			if err != nil {
+				t.Error(err)
+			}
+
+			jsonAuthorizedKeys, _ := json.Marshal(authorizedKeys)
+			response := fmt.Sprintf(`{"data": {
+					"transaction": {
+					  "data": {
+						"ownerships": [
+						  {
+							"secret": "%s",
+							"authorizedPublicKeys":
+							  %s
+						  }
+						]
+					  }
+					}
+				  }}`, hex.EncodeToString(secret), jsonAuthorizedKeys)
+
+			return &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(bytes.NewBufferString(response)),
+			}
+		}),
+	})
+
+	ownerships, _ := client.GetTransactionOwnerships(hex.EncodeToString(address))
+	if len(ownerships) != 1 {
+		t.Errorf("Wrong number of ownerships: expected 1 got %d", len(ownerships))
 	}
 }
