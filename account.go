@@ -41,6 +41,38 @@ func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) (*Transa
 	return tx, nil
 }
 
+func NewKeychainTransactionWithIndex(keychain *Keychain, transactionChainIndex uint32) (*TransactionBuilder, error) {
+
+	aesKey := make([]byte, 32)
+	rand.Read(aesKey)
+
+	authorizedKeys := make([]AuthorizedKey, len(keychain.AuthorizedPublicKeys))
+	for i, key := range keychain.AuthorizedPublicKeys {
+		encryptedSecretKey, err := EcEncrypt(aesKey, key)
+		if err != nil {
+			return nil, err
+		}
+		authorizedKeys[i] = AuthorizedKey{
+			PublicKey:          key,
+			EncryptedSecretKey: encryptedSecretKey,
+		}
+	}
+
+	tx := NewTransaction(KeychainType)
+	keychainToDid, err := keychain.ToDID()
+	if err != nil {
+		return nil, err
+	}
+	tx.SetContent(keychainToDid.ToJSON())
+	encryptedKeychain, err := AesEncrypt(keychain.toBytes(), aesKey)
+	if err != nil {
+		return nil, err
+	}
+	tx.AddOwnership(encryptedKeychain, authorizedKeys)
+	tx.Build(keychain.Seed, transactionChainIndex, ED25519, SHA256)
+	return tx, nil
+}
+
 func NewAccessTransaction(seed []byte, keychainAddress []byte) (*TransactionBuilder, error) {
 	aesKey := make([]byte, 32)
 	rand.Read(aesKey)
@@ -128,5 +160,9 @@ func GetKeychain(seed []byte, client APIClient) (*Keychain, error) {
 	if err != nil {
 		return nil, err
 	}
-	return DecodeKeychain(encryptedKeychainSecret), nil
+	keychain := DecodeKeychain(encryptedKeychainSecret)
+	for _, authKey := range keychainAuthorizedKeys {
+		keychain.AddAuthorizedPublicKey(authKey.PublicKey)
+	}
+	return keychain, nil
 }
