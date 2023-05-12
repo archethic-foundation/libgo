@@ -7,41 +7,7 @@ import (
 	"errors"
 )
 
-func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) (*TransactionBuilder, error) {
-	keychain := NewKeychain(seed)
-	keychain.AddService("uco", "m/650'/0/0", ED25519, SHA256)
-
-	aesKey := make([]byte, 32)
-	rand.Read(aesKey)
-
-	authorizedKeys := make([]AuthorizedKey, len(authorizedPublicKeys))
-	for i, key := range authorizedPublicKeys {
-		encryptedSecretKey, err := EcEncrypt(aesKey, key)
-		if err != nil {
-			return nil, err
-		}
-		authorizedKeys[i] = AuthorizedKey{
-			PublicKey:          key,
-			EncryptedSecretKey: encryptedSecretKey,
-		}
-	}
-
-	tx := NewTransaction(KeychainType)
-	keychainToDid, err := keychain.ToDID()
-	if err != nil {
-		return nil, err
-	}
-	tx.SetContent(keychainToDid.ToJSON())
-	encryptedKeychain, err := AesEncrypt(keychain.toBytes(), aesKey)
-	if err != nil {
-		return nil, err
-	}
-	tx.AddOwnership(encryptedKeychain, authorizedKeys)
-	tx.Build(seed, 0, ED25519, SHA256)
-	return tx, nil
-}
-
-func NewKeychainTransactionWithIndex(keychain *Keychain, transactionChainIndex uint32) (*TransactionBuilder, error) {
+func NewKeychainTransaction(keychain *Keychain, transactionChainIndex uint32) (*TransactionBuilder, error) {
 
 	aesKey := make([]byte, 32)
 	rand.Read(aesKey)
