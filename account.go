@@ -7,15 +7,13 @@ import (
 	"errors"
 )
 
-func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) (*TransactionBuilder, error) {
-	keychain := NewKeychain(seed)
-	keychain.AddService("uco", "m/650'/0/0", ED25519, SHA256)
+func NewKeychainTransaction(keychain *Keychain, transactionChainIndex uint32) (*TransactionBuilder, error) {
 
 	aesKey := make([]byte, 32)
 	rand.Read(aesKey)
 
-	authorizedKeys := make([]AuthorizedKey, len(authorizedPublicKeys))
-	for i, key := range authorizedPublicKeys {
+	authorizedKeys := make([]AuthorizedKey, len(keychain.AuthorizedPublicKeys))
+	for i, key := range keychain.AuthorizedPublicKeys {
 		encryptedSecretKey, err := EcEncrypt(aesKey, key)
 		if err != nil {
 			return nil, err
@@ -37,7 +35,7 @@ func NewKeychainTransaction(seed []byte, authorizedPublicKeys [][]byte) (*Transa
 		return nil, err
 	}
 	tx.AddOwnership(encryptedKeychain, authorizedKeys)
-	tx.Build(seed, 0, ED25519, SHA256)
+	tx.Build(keychain.Seed, transactionChainIndex, ED25519, SHA256)
 	return tx, nil
 }
 
@@ -128,5 +126,9 @@ func GetKeychain(seed []byte, client APIClient) (*Keychain, error) {
 	if err != nil {
 		return nil, err
 	}
-	return DecodeKeychain(encryptedKeychainSecret), nil
+	keychain := DecodeKeychain(encryptedKeychainSecret)
+	for _, authKey := range keychainAuthorizedKeys {
+		keychain.AddAuthorizedPublicKey(authKey.PublicKey)
+	}
+	return keychain, nil
 }

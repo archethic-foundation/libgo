@@ -20,9 +20,10 @@ import (
 )
 
 type Keychain struct {
-	Seed     []byte
-	Version  uint8
-	Services map[string]Service
+	Seed                 []byte
+	Version              uint8
+	Services             map[string]Service
+	AuthorizedPublicKeys [][]byte
 }
 
 type Service struct {
@@ -74,6 +75,23 @@ func (k *Keychain) AddService(name string, derivationPath string, curve Curve, h
 		DerivationPath: derivationPath,
 		Curve:          curve,
 		HashAlgo:       hashAlgo,
+	}
+}
+
+func (k *Keychain) RemoveService(name string) {
+	delete(k.Services, name)
+}
+
+func (k *Keychain) AddAuthorizedPublicKey(publicKey []byte) {
+	k.AuthorizedPublicKeys = append(k.AuthorizedPublicKeys, publicKey)
+}
+
+func (k *Keychain) RemoveAuthorizedPublicKey(publicKey []byte) {
+	for i, key := range k.AuthorizedPublicKeys {
+		if bytes.Equal(key, publicKey) {
+			k.AuthorizedPublicKeys = append(k.AuthorizedPublicKeys[:i], k.AuthorizedPublicKeys[i+1:]...)
+			return
+		}
 	}
 }
 
