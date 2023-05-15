@@ -18,18 +18,20 @@ func TestCreateKeychainTransaction(t *testing.T) {
 		pubKey,
 	}
 
-	tx, _ := NewKeychainTransaction([]byte("myseed"), authorizedPublicKeys)
+	keychain := &Keychain{
+		Seed:                 []byte("myseed"),
+		AuthorizedPublicKeys: authorizedPublicKeys,
+	}
 
-	expectedKeychain := NewKeychain([]byte("myseed"))
-	expectedKeychain.AddService("uco", "m/650'/0/0", ED25519, SHA256)
+	tx, _ := NewKeychainTransaction(keychain, 0)
 
 	if tx.TxType != KeychainType {
 		t.Errorf("Error with type expected %d but got %d", KeychainType, tx.TxType)
 	}
 
-	expectedKeychainToDid, _ := expectedKeychain.ToDID()
-	if !reflect.DeepEqual(expectedKeychainToDid.ToJSON(), tx.Data.Content) {
-		t.Errorf("Error with content expected %s but got %s", tx.Data.Content, expectedKeychainToDid.ToJSON())
+	keychainDID, _ := keychain.ToDID()
+	if !reflect.DeepEqual(keychainDID.ToJSON(), tx.Data.Content) {
+		t.Errorf("Error with content expected %s but got %s", tx.Data.Content, keychainDID.ToJSON())
 	}
 
 	if len(tx.Data.Ownerships) != 1 {
@@ -68,7 +70,11 @@ func TestShouldGetKeychain(t *testing.T) {
 	client := NewAPIClient("http://localhost:4000")
 
 	publicKey, _, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
-	keychainTx, _ := NewKeychainTransaction([]byte("myseed"), [][]byte{publicKey})
+
+	keychain := NewKeychain([]byte("myseed"))
+	keychain.AddAuthorizedPublicKey(publicKey)
+
+	keychainTx, _ := NewKeychainTransaction(keychain, 0)
 	accessTx, _ := NewAccessTransaction([]byte("seed"), keychainTx.Address)
 
 	client.InjectHTTPClient(&http.Client{
@@ -151,11 +157,15 @@ func TestShouldGetKeychain(t *testing.T) {
 		}),
 	})
 
-	keychain, _ := GetKeychain([]byte("seed"), *client)
-	if len(keychain.Services) != 1 {
+	keychainRetrieved, _ := GetKeychain([]byte("seed"), *client)
+	if !reflect.DeepEqual(keychain.Seed, keychainRetrieved.Seed) {
+		t.Errorf("Wrong keychain's seed returned: %s %s", hex.EncodeToString(keychain.Seed), hex.EncodeToString(keychainRetrieved.Seed))
+	}
+	if len(keychainRetrieved.Services) != 1 {
 		t.Errorf("Wrong number of services: expected 1 got %d", len(keychain.Services))
 	}
-	if keychain.Services["uco"].DerivationPath != "m/650'/0/0" {
+	if keychainRetrieved.Services["uco"].DerivationPath != "m/650'/0/0" {
 		t.Errorf("Wrong derivation path: expected m/650'/0/0 got %s", keychain.Services["uco"].DerivationPath)
 	}
+
 }
