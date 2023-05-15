@@ -6,7 +6,7 @@ Official Archethic golang library
 ## Installing
 
 ```bash
-go get github.com/archethic-foundation/archethic-cli
+go get github.com/archethic-foundation/libgo
 ```
 
 ## Usage
