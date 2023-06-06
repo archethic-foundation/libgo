@@ -362,20 +362,22 @@ func convertToMinimumBytes(length int) (int, []byte) {
 
 	// determine the minimum number of bytes necessary to represent the length
 	var size int
+	bigIntLength := int64(length)
+
 	switch {
-	case length <= 0xff:
+	case bigIntLength <= 0xff:
 		size = 1
-	case length <= 0xffff:
+	case bigIntLength <= 0xffff:
 		size = 2
-	case length <= 0xffffff:
+	case bigIntLength <= 0xffffff:
 		size = 3
-	case length <= 0xffffffff:
+	case bigIntLength <= 0xffffffff:
 		size = 4
-	case length <= 0xffffffffff:
+	case bigIntLength <= 0xffffffffff:
 		size = 5
-	case length <= 0xffffffffffff:
+	case bigIntLength <= 0xffffffffffff:
 		size = 6
-	case length <= 0xffffffffffffff:
+	case bigIntLength <= 0xffffffffffffff:
 		size = 7
 	default:
 		size = 8
