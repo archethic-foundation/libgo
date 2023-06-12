@@ -48,11 +48,10 @@ func (a *AbsintheSubscription) GraphqlSubscription(wsUrl, query string, variable
 
 	// Listen for a response and only continue once we know we're joined
 	join.Receive("ok", func(response any) {
-		log.Println("Joined channel:", channel.Topic(), response)
 		cont <- true
 	})
 	join.Receive("error", func(response any) {
-		log.Println("Join error", response)
+		log.Fatalf("Join error: %s", response)
 	})
 
 	// wait to be joined
@@ -87,7 +86,6 @@ func (a *AbsintheSubscription) GraphqlSubscription(wsUrl, query string, variable
 		}
 
 		if subscriptionID != "" {
-			log.Printf("SubscriptionID: %s", subscriptionID)
 			cont <- true
 		}
 	})

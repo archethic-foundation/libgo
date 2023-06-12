@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -110,8 +109,6 @@ func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmatio
 	go ts.SubscribeTransactionConfirmed(transactionAddress, func() {
 		wg.Done()
 	}, func(transactionConfirmed TransactionConfirmedGQL) {
-		log.Println("Transaction is confirmed")
-		log.Println(transactionConfirmed)
 		if ts.handleConfirmation(confirmationThreshold, transactionConfirmed.NbConfirmations, transactionConfirmed.MaxConfirmations) {
 			done <- true
 		}
@@ -120,8 +117,6 @@ func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmatio
 	go ts.SubscribeTransactionError(transactionAddress, func() {
 		wg.Done()
 	}, func(transactionError TransactionErrorGQL) {
-		log.Println("Error during transaction")
-		log.Println(transactionError)
 		ts.handleError(string(transactionError.Context), transactionError.Reason)
 		done <- true
 	})
