@@ -27,9 +27,9 @@ type Keychain struct {
 }
 
 type Service struct {
-	DerivationPath string
-	Curve          Curve
-	HashAlgo       HashAlgo
+	DerivationPath string   `json:"derivationPath"`
+	Curve          Curve    `json:"curve"`
+	HashAlgo       HashAlgo `json:"hashAlgo"`
 }
 
 type DID struct {
