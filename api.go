@@ -1,17 +1,16 @@
 package archethic
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/hasura/go-graphql-client"
 	"github.com/nshafer/phx"
+	"github.com/ybbus/jsonrpc/v3"
 )
 
 type Address string
@@ -132,6 +131,7 @@ type APIClient struct {
 	graphqlClient  *graphql.Client
 	absintheSocket *phx.Socket
 	httpClient     *http.Client
+	jsonRpcClient  jsonrpc.RPCClient
 }
 
 func NewAPIClient(baseURL string) *APIClient {
@@ -151,9 +151,12 @@ func NewAPIClient(baseURL string) *APIClient {
 	wsUrl := ws_protocol + "://" + host + "/socket"
 
 	baseURL = baseURL + "/api"
+	baseURLJsonRpc := baseURL + "/rpc"
 	graphqlClient := graphql.NewClient(baseURL, nil)
 	absintheSocket := new(phx.Socket)
-	return &APIClient{baseURL, wsUrl, graphqlClient, absintheSocket, http.DefaultClient}
+
+	jsonRpcClient := jsonrpc.NewClient(baseURLJsonRpc)
+	return &APIClient{baseURL, wsUrl, graphqlClient, absintheSocket, http.DefaultClient, jsonRpcClient}
 }
 
 func (c *APIClient) InjectHTTPClient(httpClient *http.Client) {
@@ -203,31 +206,51 @@ func (c *APIClient) GetStorageNoncePublicKey() (string, error) {
 	return query.SharedSecrets.StorageNoncePublicKey, nil
 }
 
+type SendTransactionResponse struct {
+	TransactionAddress string `json:"transaction_address"`
+	Status             string
+}
+
+func (c *APIClient) SendTransaction(tx *TransactionBuilder) (SendTransactionResponse, error) {
+	var response SendTransactionResponse
+	jsonMap, err := tx.ToJSONMap()
+	if err != nil {
+		return response, err
+	}
+	err = c.jsonRpcClient.CallFor(context.Background(), &response, "send_transaction", jsonMap)
+	return response, err
+}
+
 func (c *APIClient) GetTransactionFee(tx *TransactionBuilder) (Fee, error) {
-
-	payload, err := tx.ToJSON()
-	if err != nil {
-		return Fee{}, err
-	}
-	transactionFeeUrl := c.baseURL + "/transaction_fee"
-	req, err := http.NewRequest("POST", transactionFeeUrl, bytes.NewReader(payload))
-	if err != nil {
-		return Fee{}, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return Fee{}, err
-	}
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return Fee{}, err
-	}
-
 	var fee Fee
-	json.Unmarshal(respBody, &fee)
-	return fee, nil
+	jsonMap, err := tx.ToJSONMap()
+	if err != nil {
+		return fee, err
+	}
+	err = c.jsonRpcClient.CallFor(context.Background(), &fee, "estimate_transaction_fee", jsonMap)
+	return fee, err
+}
+
+type SimulateResponseError struct {
+	Code    int
+	Message string
+	Data    map[string]interface{}
+}
+
+type SimulateResponse struct {
+	RecipientAddress string `json:"recipient_address"`
+	Valid            bool
+	Error            SimulateResponseError
+}
+
+func (c *APIClient) SimulateContractExecution(tx *TransactionBuilder) ([]SimulateResponse, error) {
+	var result []SimulateResponse
+	jsonMap, err := tx.ToJSONMap()
+	if err != nil {
+		return result, err
+	}
+	err = c.jsonRpcClient.CallFor(context.Background(), &result, "simulate_contract_execution", jsonMap)
+	return result, err
 }
 
 func (c *APIClient) GetTransactionOwnerships(address string) ([]Ownership, error) {
@@ -328,29 +351,14 @@ func (c *APIClient) GetToken(address string) (Token, error) {
 
 }
 
-func (c *APIClient) AddOriginKey(originPublicKey, certificate string) error {
-	addOriginKeyUrl := c.baseURL + "/origin_key"
-
-	data := map[string]string{
+func (c *APIClient) AddOriginKey(originPublicKey, certificate string) (SendTransactionResponse, error) {
+	input := map[string]string{
 		"origin_public_key": originPublicKey,
 		"certificate":       certificate,
 	}
-	payload, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest("POST", addOriginKeyUrl, bytes.NewBuffer(payload))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	_, err = c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	return nil
+	var res SendTransactionResponse
+	err := c.jsonRpcClient.CallFor(context.Background(), &res, "add_origin_key", input)
+	return res, err
 }
 
 func (c *APIClient) GetOracleData(timestamp ...int64) (OracleData, error) {

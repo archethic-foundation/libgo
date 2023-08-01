@@ -436,7 +436,7 @@ func ToUint64(number float64, decimals int) (uint64, error) {
 	return result, nil
 }
 
-func (t *TransactionBuilder) ToJSON() ([]byte, error) {
+func (t *TransactionBuilder) ToJSONMap() (map[string]interface{}, error) {
 	ownerships := make([]map[string]interface{}, len(t.Data.Ownerships))
 	for i, o := range t.Data.Ownerships {
 		authorizedKeys := make([]map[string]string, len(o.AuthorizedKeys))
@@ -501,7 +501,15 @@ func (t *TransactionBuilder) ToJSON() ([]byte, error) {
 	if t.OriginSignature != nil {
 		m["originSignature"] = hex.EncodeToString(t.OriginSignature)
 	}
-	return json.Marshal(m)
+	return m, nil
+}
+
+func (t *TransactionBuilder) ToJSON() ([]byte, error) {
+	jsonMap, err := t.ToJSONMap()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(jsonMap)
 }
 
 func (t TransactionType) String() (string, error) {
