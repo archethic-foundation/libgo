@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"strings"
 )
 
 func NewKeychainTransaction(keychain *Keychain, transactionChainIndex uint32) (*TransactionBuilder, error) {
@@ -80,6 +81,9 @@ func GetKeychain(seed []byte, client APIClient) (*Keychain, error) {
 	}
 	accessOwnerships, err := client.GetTransactionOwnerships(hex.EncodeToString(accessKeychainAddress))
 	if err != nil {
+		if strings.Contains(err.Error(), "transaction_not_exists") {
+			return nil, errors.New("access keychain doesn't exist")
+		}
 		return nil, err
 	}
 	if len(accessOwnerships) == 0 {
