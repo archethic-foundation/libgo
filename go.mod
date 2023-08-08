@@ -10,6 +10,7 @@ require (
 	github.com/hasura/go-graphql-client v0.9.1
 	github.com/nshafer/phx v0.2.0
 	golang.org/x/crypto v0.6.0
+	github.com/ybbus/jsonrpc/v3 v3.1.4
 )
 
 require (

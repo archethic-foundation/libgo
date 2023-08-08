@@ -1,12 +1,10 @@
 package archethic
 
 import (
-	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -19,7 +17,7 @@ type TransactionSender struct {
 	onConfirmation                   []func(nbConfirmations, maxConfirmations int)
 	onFullConfirmation               []func(maxConfirmations int)
 	onRequiredConfirmation           []func(nbConfirmations int)
-	onError                          []func(senderContext, message string)
+	onError                          []func(senderContext string, message error)
 	onTimeout                        []func(nbConfirmationReceived int)
 	nbConfirmationReceived           int
 	timeout                          *Timeout
@@ -34,7 +32,7 @@ func NewTransactionSender(client *APIClient) *TransactionSender {
 		[]func(nbConfirmations, maxConfirmations int){},
 		[]func(maxConfirmations int){},
 		[]func(nbConfirmations int){},
-		[]func(senderContext, message string){},
+		[]func(senderContext string, message error){},
 		[]func(nbConfirmationReceived int){},
 		0,
 		nil,
@@ -59,7 +57,7 @@ func (ts *TransactionSender) AddOnRequiredConfirmation(handler func(nbConfirmati
 	ts.onRequiredConfirmation = append(ts.onRequiredConfirmation, handler)
 }
 
-func (ts *TransactionSender) AddOnError(handler func(senderContext, message string)) {
+func (ts *TransactionSender) AddOnError(handler func(senderContext string, message error)) {
 	ts.onError = append(ts.onError, handler)
 }
 
@@ -79,7 +77,7 @@ func (ts *TransactionSender) Unsubscribe(event string) error {
 		case "fullConfirmation":
 			ts.onFullConfirmation = []func(maxConfirmations int){}
 		case "error":
-			ts.onError = []func(senderContext string, message string){}
+			ts.onError = []func(senderContext string, message error){}
 		case "timeout":
 			ts.onTimeout = []func(nbConfirmationReceived int){}
 		default:
@@ -92,7 +90,7 @@ func (ts *TransactionSender) Unsubscribe(event string) error {
 		ts.onConfirmation = []func(nbConfirmations, maxConfirmations int){}
 		ts.onRequiredConfirmation = []func(nbConfirmations int){}
 		ts.onFullConfirmation = []func(maxConfirmations int){}
-		ts.onError = []func(senderContext string, message string){}
+		ts.onError = []func(senderContext string, message error){}
 		ts.onTimeout = []func(nbConfirmationReceived int){}
 	}
 	return nil
@@ -117,32 +115,27 @@ func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmatio
 	go ts.SubscribeTransactionError(transactionAddress, func() {
 		wg.Done()
 	}, func(transactionError TransactionErrorGQL) {
-		ts.handleError(string(transactionError.Context), transactionError.Reason)
+		ts.handleError(string(transactionError.Context), errors.New(transactionError.Reason))
 		done <- true
 	})
 
 	wg.Wait()
 
-	payload, err := tx.ToJSON()
+	_, err := ts.client.SendTransaction(tx)
 	if err != nil {
-		return err
-	}
-	transactionUrl := ts.client.baseURL + "/transaction"
-	req, err := http.NewRequest("POST", transactionUrl, bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	resp, err := ts.client.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	go ts.handleSend(timeout, resp, func(isFinished bool) {
-		if isFinished {
-			done <- true
+		ts.transactionErrorSubscription.CancelSubscription()
+		ts.transactionConfirmedSubscription.CancelSubscription()
+		for _, f := range ts.onError {
+			f(senderContext, err)
 		}
-	})
+		return nil
+	} else {
+		go ts.handleSend(timeout, func(isFinished bool) {
+			if isFinished {
+				done <- true
+			}
+		})
+	}
 
 	<-done
 	return nil
@@ -241,7 +234,7 @@ func (ts *TransactionSender) handleConfirmation(confirmationThreshold, nbConfirm
 	return false
 }
 
-func (ts *TransactionSender) handleError(context, reason string) {
+func (ts *TransactionSender) handleError(context string, reason error) {
 	ts.timeout.Clear()
 	ts.transactionErrorSubscription.CancelSubscription()
 	ts.transactionConfirmedSubscription.CancelSubscription()
@@ -250,43 +243,21 @@ func (ts *TransactionSender) handleError(context, reason string) {
 	}
 }
 
-func (ts *TransactionSender) handleSend(timeout int, response *http.Response, isFinishedHandler func(bool)) error {
-	respBody, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
+func (ts *TransactionSender) handleSend(timeout int, isFinishedHandler func(bool)) error {
+
+	for _, f := range ts.onSent {
+		f()
 	}
 
-	if response.StatusCode >= 200 && response.StatusCode <= 299 {
-		for _, f := range ts.onSent {
-			f()
-		}
-
-		ts.timeout = SetTimeout(func() {
-			ts.transactionErrorSubscription.CancelSubscription()
-			ts.transactionConfirmedSubscription.CancelSubscription()
-			for _, f := range ts.onTimeout {
-				f(ts.nbConfirmationReceived)
-			}
-			isFinishedHandler(true)
-		}, time.Duration(timeout*1000000000))
-
-	} else {
+	ts.timeout = SetTimeout(func() {
 		ts.transactionErrorSubscription.CancelSubscription()
 		ts.transactionConfirmedSubscription.CancelSubscription()
-		var data map[string]interface{}
-		if err := json.Unmarshal([]byte(respBody), &data); err != nil {
-			return err
-		}
-
-		status, ok := data["status"].(string)
-		if !ok {
-			status = string(respBody)
-		}
-		for _, f := range ts.onError {
-			f(senderContext, status)
+		for _, f := range ts.onTimeout {
+			f(ts.nbConfirmationReceived)
 		}
 		isFinishedHandler(true)
-	}
+	}, time.Duration(timeout*1000000000))
+
 	return nil
 }
 
