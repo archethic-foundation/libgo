@@ -248,18 +248,6 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
 	expectedBinary = append(expectedBinary, []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 
-	// Recipients
-	// Nb of bytes to encode nb
-	expectedBinary = append(expectedBinary, []byte{1}...)
-	// Nb of recipients
-	expectedBinary = append(expectedBinary, []byte{2}...)
-	// recipient #1
-	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
-	// recipient #2
-	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
-	expectedBinary = append(expectedBinary, []byte("vote_for_class_president")...)
-	expectedBinary = append(expectedBinary, []byte("[\"Judy\"]")...)
-
 	// Nb of byte to encode nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
@@ -281,6 +269,17 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
+	// Recipients
+	// Nb of bytes to encode nb
+	expectedBinary = append(expectedBinary, []byte{1}...)
+	// Nb of recipients
+	expectedBinary = append(expectedBinary, []byte{2}...)
+	// recipient #1
+	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
+	// recipient #2
+	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
+	expectedBinary = append(expectedBinary, []byte("vote_for_class_president")...)
+	expectedBinary = append(expectedBinary, []byte("[\"Judy\"]")...)
 	// expectedBinary = append(expectedBinary, publicKey...)
 	// expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(tx.previousSignature)))...)
 	// expectedBinary = append(expectedBinary, tx.previousSignature...)
@@ -435,14 +434,6 @@ func TestOriginSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte("0001a1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
 	expectedBinary = append(expectedBinary, []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 
-	// Recipients
-	// Nb of bytes to encode nb
-	expectedBinary = append(expectedBinary, []byte{1}...)
-	// Nb of recipients
-	expectedBinary = append(expectedBinary, []byte{1}...)
-	// recipient #1
-	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
-
 	// Nb of byte to encode nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
@@ -463,6 +454,14 @@ func TestOriginSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, EncodeInt64(amount)...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
+
+	// Recipients
+	// Nb of bytes to encode nb
+	expectedBinary = append(expectedBinary, []byte{1}...)
+	// Nb of recipients
+	expectedBinary = append(expectedBinary, []byte{1}...)
+	// recipient #1
+	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 
 	expectedBinary = append(expectedBinary, publicKey...)
 	expectedBinary = append(expectedBinary, byte(len(tx.PreviousSignature)))

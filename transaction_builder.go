@@ -14,8 +14,8 @@ type TransactionType uint8
 
 const (
 	Version            uint32          = 2
-	KeychainAccessType TransactionType = 254
 	KeychainType       TransactionType = 255
+	KeychainAccessType TransactionType = 254
 	TransferType       TransactionType = 253
 	HostingType        TransactionType = 252
 	TokenType          TransactionType = 251
@@ -55,12 +55,11 @@ func (t TransactionData) toBytes() []byte {
 	// Encode ownerships
 	buf = append(buf, t.ownershipsBytes()...)
 
-	// Encode recipients
-	buf = append(buf, t.recipientsBytes()...)
-
 	// Encode ledger (UCO + token)
 	buf = append(buf, t.Ledger.toBytes()...)
 
+	// Encode recipients
+	buf = append(buf, t.recipientsBytes()...)
 	return buf
 }
 
@@ -346,8 +345,7 @@ func (t *TransactionBuilder) OriginSign(originPrivateKey []byte) error {
 }
 
 func (t TransactionBuilder) previousSignaturePayload() []byte {
-	versionBytes := []byte{0, 0, 0, 0}
-
+	versionBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(versionBytes, t.Version)
 
 	buf := make([]byte, 0)
