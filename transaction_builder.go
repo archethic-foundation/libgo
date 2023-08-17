@@ -43,7 +43,7 @@ type TransactionData struct {
 	Recipients []Recipient
 }
 
-func (t TransactionData) toBytes() []byte {
+func (t TransactionData) toBytes(tx_version uint32) []byte {
 	buf := make([]byte, 0)
 
 	// Encode code
@@ -59,7 +59,7 @@ func (t TransactionData) toBytes() []byte {
 	buf = append(buf, t.Ledger.toBytes()...)
 
 	// Encode recipients
-	buf = append(buf, t.recipientsBytes()...)
+	buf = append(buf, t.recipientsBytes(tx_version)...)
 	return buf
 }
 
@@ -76,7 +76,7 @@ func (t TransactionData) ownershipsBytes() []byte {
 	return buf
 }
 
-func (t TransactionData) recipientsBytes() []byte {
+func (t TransactionData) recipientsBytes(tx_version uint32) []byte {
 	buf := make([]byte, 0)
 
 	size, recipientsSize := convertToMinimumBytes(len(t.Recipients))
@@ -84,7 +84,7 @@ func (t TransactionData) recipientsBytes() []byte {
 	buf = append(buf, recipientsSize...)
 
 	for i := 0; i < len(t.Recipients); i++ {
-		buf = append(buf, t.Recipients[i].toBytes()...)
+		buf = append(buf, t.Recipients[i].toBytes(tx_version)...)
 	}
 	return buf
 }
@@ -209,11 +209,27 @@ type Recipient struct {
 	ArgsJson []byte
 }
 
-func (r Recipient) toBytes() []byte {
+func (r Recipient) toBytes(tx_version uint32) []byte {
 	buf := make([]byte, 0)
-	buf = append(buf, r.Address...)
-	buf = append(buf, r.Action...)
-	buf = append(buf, r.ArgsJson...)
+
+	switch tx_version {
+	case uint32(1):
+		buf = append(buf, r.Address...)
+	case uint32(2):
+		// single byte to determine if it's a named or unnamed
+		if r.Action == nil && r.ArgsJson == nil {
+			buf = append(buf, uint8(0))
+			buf = append(buf, r.Address...)
+		} else {
+			buf = append(buf, uint8(1))
+			buf = append(buf, r.Address...)
+			// FIXME actionbytes
+			buf = append(buf, r.Action...)
+			// FIXME argsbytes
+			buf = append(buf, r.ArgsJson...)
+		}
+	}
+
 	return buf
 }
 
@@ -353,7 +369,7 @@ func (t TransactionBuilder) previousSignaturePayload() []byte {
 	buf = append(buf, versionBytes...)
 	buf = append(buf, t.Address...)
 	buf = append(buf, byte(t.TxType))
-	buf = append(buf, t.Data.toBytes()...)
+	buf = append(buf, t.Data.toBytes(t.Version)...)
 
 	return buf
 }

@@ -274,9 +274,11 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	// Nb of recipients
 	expectedBinary = append(expectedBinary, []byte{2}...)
-	// recipient #1
+	// recipient #1 (first byte = unnamed)
+	expectedBinary = append(expectedBinary, []byte{0}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
-	// recipient #2
+	// recipient #2 (first byte = named)
+	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 	expectedBinary = append(expectedBinary, []byte("vote_for_class_president")...)
 	expectedBinary = append(expectedBinary, []byte("[\"Judy\"]")...)
@@ -460,7 +462,8 @@ func TestOriginSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	// Nb of recipients
 	expectedBinary = append(expectedBinary, []byte{1}...)
-	// recipient #1
+	// recipient #1 (first byte = unnamed)
+	expectedBinary = append(expectedBinary, []byte{0}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 
 	expectedBinary = append(expectedBinary, publicKey...)
