@@ -195,8 +195,16 @@ func TestPreviousSignaturePayload(t *testing.T) {
 		1)
 	tx.SetCode(code)
 	tx.SetContent(content)
+
+	// a unnamed action
 	tx.AddRecipient(
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"))
+
+	// a named action
+	tx.AddRecipientForNamedAction(
+		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
+		[]byte("vote_for_class_president"),
+		[]byte("[\"Judy\"]"))
 
 	publicKey, _, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
 	address, _ := DeriveAddress([]byte("seed"), 1, ED25519, SHA256)
@@ -208,7 +216,7 @@ func TestPreviousSignaturePayload(t *testing.T) {
 
 	expectedBinary := make([]byte, 0)
 	// Version
-	expectedBinary = append(expectedBinary, EncodeInt32(1)...)
+	expectedBinary = append(expectedBinary, EncodeInt32(2)...)
 	expectedBinary = append(expectedBinary, tx.Address...)
 	expectedBinary = append(expectedBinary, []byte{253}...)
 
@@ -240,6 +248,18 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte("0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
 	expectedBinary = append(expectedBinary, []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 
+	// Recipients
+	// Nb of bytes to encode nb
+	expectedBinary = append(expectedBinary, []byte{1}...)
+	// Nb of recipients
+	expectedBinary = append(expectedBinary, []byte{2}...)
+	// recipient #1
+	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
+	// recipient #2
+	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
+	expectedBinary = append(expectedBinary, []byte("vote_for_class_president")...)
+	expectedBinary = append(expectedBinary, []byte("[\"Judy\"]")...)
+
 	// Nb of byte to encode nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
@@ -261,10 +281,6 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
-	// Nb of byte to encode nb of recipients
-	expectedBinary = append(expectedBinary, []byte{1}...)
-	expectedBinary = append(expectedBinary, []byte{1}...)
-	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 	// expectedBinary = append(expectedBinary, publicKey...)
 	// expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(tx.previousSignature)))...)
 	// expectedBinary = append(expectedBinary, tx.previousSignature...)
@@ -385,7 +401,7 @@ func TestOriginSignaturePayload(t *testing.T) {
 
 	expectedBinary := make([]byte, 0)
 	// Version
-	expectedBinary = append(expectedBinary, EncodeInt32(1)...)
+	expectedBinary = append(expectedBinary, EncodeInt32(2)...)
 	expectedBinary = append(expectedBinary, tx.Address...)
 	expectedBinary = append(expectedBinary, []byte{253}...)
 
@@ -419,6 +435,14 @@ func TestOriginSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte("0001a1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
 	expectedBinary = append(expectedBinary, []byte("00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 
+	// Recipients
+	// Nb of bytes to encode nb
+	expectedBinary = append(expectedBinary, []byte{1}...)
+	// Nb of recipients
+	expectedBinary = append(expectedBinary, []byte{1}...)
+	// recipient #1
+	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
+
 	// Nb of byte to encode nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
@@ -440,14 +464,9 @@ func TestOriginSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
-	// Nb of byte to encode nb of recipients
-	expectedBinary = append(expectedBinary, []byte{1}...)
-	expectedBinary = append(expectedBinary, []byte{1}...)
-	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 	expectedBinary = append(expectedBinary, publicKey...)
 	expectedBinary = append(expectedBinary, byte(len(tx.PreviousSignature)))
 	expectedBinary = append(expectedBinary, tx.PreviousSignature...)
-
 	if !reflect.DeepEqual(payload, expectedBinary) {
 		t.Errorf("expected payload %v, got %v", expectedBinary, payload)
 	}
@@ -468,66 +487,93 @@ func TestOriginSign(t *testing.T) {
 	}
 }
 
-// it("should return a JSON from the transaction", () => {
-// 	const originKeypair = deriveKeyPair("origin_seed", 0);
-// 	const transactionKeyPair = deriveKeyPair("seed", 0);
+func TestToJSONMap(t *testing.T) {
+	addressHex := "00002223bbd4ec3d64ae597696c7d7ade1cee65c639d885450ad2d7b75592ac76afa"
+	address, _ := hex.DecodeString(addressHex)
+	code := "@version 1\ncondition inherit: []"
+	content := "hello"
+	contentHex := "68656c6c6f"
 
-// 	const tx = new TransactionBuilder("transfer")
-// 	  .addUCOTransfer(
-// 		"0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646",
-// 		toBigInt(0.2193)
-// 	  )
-// 	  .addOwnership(Uint8Array.from([0, 1, 2, 3, 4]), [
-// 		{
-// 		  publicKey:
-// 			"0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646",
-// 		  encryptedSecretKey:
-// 			"00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88",
-// 		},
-// 	  ])
-// 	  .build("seed", 0)
-// 	  .originSign(originKeypair.privateKey);
+	// prepare
+	tx := NewTransaction(DataType)
+	tx.SetAddress([]byte(address))
+	tx.SetCode(code)
+	tx.SetContent([]byte(content))
+	tx.AddRecipient(address)
+	tx.AddRecipientForNamedAction(address, []byte("vote_for_class_president"), []byte("[\"Rudy\"]"))
+	tx.AddTokenTransfer(address, address, 33, 65)
+	tx.AddUcoTransfer(address, 64)
 
-// 	const parsedTx = JSON.parse(tx.toJSON());
+	// run
+	jsonMap, err := tx.ToJSONMap()
+	if err != nil {
+		t.Errorf("ToJSONMap() errored: %s", err)
+		return
+	}
 
-// 	const previousSig = sign(
-// 	  tx.previousSignaturePayload(),
-// 	  transactionKeyPair.privateKey
-// 	);
-// 	const originSig = sign(
-// 	  tx.originSignaturePayload(),
-// 	  originKeypair.privateKey
-// 	);
+	// asserts
+	if jsonMap["address"] != addressHex {
+		t.Error("Unexpected address")
+	}
 
-// 	assert.strictEqual(
-// 	  parsedTx.address,
-// 	  uint8ArrayToHex(deriveAddress("seed", 1))
-// 	);
-// 	assert.strictEqual(parsedTx.type, "transfer");
-// 	assert.strictEqual(
-// 	  parsedTx.previousPublicKey,
-// 	  uint8ArrayToHex(transactionKeyPair.publicKey)
-// 	);
-// 	assert.strictEqual(
-// 	  parsedTx.previousSignature,
-// 	  uint8ArrayToHex(previousSig)
-// 	);
-// 	assert.strictEqual(parsedTx.originSignature, uint8ArrayToHex(originSig));
-// 	assert.strictEqual(
-// 	  parsedTx.data.ownerships[0].secret,
-// 	  uint8ArrayToHex(Uint8Array.from([0, 1, 2, 3, 4]))
-// 	);
-// 	assert.deepStrictEqual(parsedTx.data.ledger.uco.transfers[0], {
-// 	  to: "0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646",
-// 	  amount: toBigInt(0.2193),
-// 	});
-// 	assert.deepStrictEqual(parsedTx.data.ownerships[0].authorizedKeys, [
-// 	  {
-// 		publicKey:
-// 		  "0001b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646",
-// 		encryptedSecretKey:
-// 		  "00501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88",
-// 	  },
-// 	]);
-//   });
-// });
+	data := jsonMap["data"].(map[string]interface{})
+	if data["code"] != code {
+		t.Error("Unexpected code")
+	}
+	if data["content"] != contentHex {
+		t.Error("Unexpected content")
+	}
+
+	recipients := data["recipients"].([]map[string]interface{})
+	recipient1 := recipients[0]
+	recipient2 := recipients[1]
+	recipient2Args := recipient2["args"].([]interface{})
+
+	if recipient1["address"] != addressHex {
+		t.Error("Unexpected recipient1 address")
+	}
+	if recipient1["action"] != nil {
+		t.Error("Unexpected recipient1 action")
+	}
+	if recipient1["args"] != nil {
+		t.Error("Unexpected recipient1 args")
+	}
+
+	if recipient2["address"] != addressHex {
+		t.Error("Unexpected recipient2 address")
+	}
+	if recipient2["action"] != "vote_for_class_president" {
+		t.Error("Unexpected recipient2 action")
+	}
+	if len(recipient2Args) != 1 {
+		t.Error("Unexpected recipient2 args length")
+	}
+	if recipient2Args[0] != "Rudy" {
+		t.Error("Unexpected recipient2 args 1")
+	}
+
+	ledger := data["ledger"].(map[string]interface{})
+	ucoTransfers := ledger["uco"].(map[string]interface{})["transfers"]
+	ucoTransfer1 := ucoTransfers.([]map[string]interface{})[0]
+	if ucoTransfer1["amount"] != uint64(64) {
+		t.Error("Unexpected uco transfer 1 amount")
+	}
+	if ucoTransfer1["to"] != addressHex {
+		t.Error("Unexpected uco transfer 1 to")
+	}
+
+	tokenTransfers := ledger["token"].(map[string]interface{})["transfers"]
+	tokenTransfer1 := tokenTransfers.([]map[string]interface{})[0]
+	if tokenTransfer1["amount"] != uint64(33) {
+		t.Error("Unexpected token transfer 1 amount")
+	}
+	if tokenTransfer1["to"] != addressHex {
+		t.Error("Unexpected token transfer 1 to")
+	}
+	if tokenTransfer1["tokenAddress"] != addressHex {
+		t.Error("Unexpected token transfer 1 tokenAddress")
+	}
+	if tokenTransfer1["tokenId"] != 65 {
+		t.Error("Unexpected token transfer 1 tokenId")
+	}
+}
