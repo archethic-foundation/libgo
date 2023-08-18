@@ -216,16 +216,19 @@ func (r Recipient) toBytes(tx_version uint32) []byte {
 	case uint32(1):
 		buf = append(buf, r.Address...)
 	case uint32(2):
-		// single byte to determine if it's a named or unnamed
 		if r.Action == nil && r.ArgsJson == nil {
+			// 0 = unnamed action
 			buf = append(buf, uint8(0))
 			buf = append(buf, r.Address...)
 		} else {
+			// 1 = named action
 			buf = append(buf, uint8(1))
 			buf = append(buf, r.Address...)
-			// FIXME actionbytes
-			buf = append(buf, r.Action...)
-			// FIXME argsbytes
+			buf = appendSizeAndContent(buf, r.Action, 8)
+
+			size, argsSize := convertToMinimumBytes(len(r.ArgsJson))
+			buf = append(buf, byte(size))
+			buf = append(buf, argsSize...)
 			buf = append(buf, r.ArgsJson...)
 		}
 	}
@@ -516,7 +519,9 @@ func (t *TransactionBuilder) ToJSONMap() (map[string]interface{}, error) {
 		if len(r.ArgsJson) == 0 {
 			args = nil
 		} else {
-			json.Unmarshal(r.ArgsJson, &args)
+			if err := json.Unmarshal(r.ArgsJson, &args); err != nil {
+				return nil, err
+			}
 		}
 
 		// nullable action

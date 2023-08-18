@@ -280,7 +280,12 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	// recipient #2 (first byte = named)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
+	// recipient #2 action
+	expectedBinary = append(expectedBinary, []byte{24}...)
 	expectedBinary = append(expectedBinary, []byte("vote_for_class_president")...)
+	// recipient #2 args
+	expectedBinary = append(expectedBinary, []byte{1}...)
+	expectedBinary = append(expectedBinary, []byte{8}...)
 	expectedBinary = append(expectedBinary, []byte("[\"Judy\"]")...)
 	// expectedBinary = append(expectedBinary, publicKey...)
 	// expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(tx.previousSignature)))...)
