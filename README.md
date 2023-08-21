@@ -135,11 +135,11 @@ import (
   Adds a recipient to call the smart contract's "transaction" action.
   - `to` is the contract's address in hexadecimal
 
-  #### AddRecipientForNamedAction(to, action, argsJSON)
+  #### AddRecipientForNamedAction(to, action, args)
   Adds a recipient to call a specific smart contract's action.
   - `to` is the contract's address in hexadecimal
   - `action` is the name of the action
-  - `argsJson` is a JSON representing the arguments of the action (ex: "[\"Ron\", 24]")
+  - `args` is the list of arguments of the action
 
   #### Build(seed, index, curve, hashAlgo)
   Generates `address`, `timestamp`, `previousPublicKey`, `previousSignature` of the transaction and

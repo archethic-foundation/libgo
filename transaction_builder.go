@@ -204,9 +204,9 @@ func (o Ownership) toBytes() []byte {
 }
 
 type Recipient struct {
-	Address  []byte
-	Action   []byte
-	ArgsJson []byte
+	Address []byte
+	Action  []byte
+	Args    []interface{}
 }
 
 func (r Recipient) toBytes(tx_version uint32) []byte {
@@ -216,7 +216,7 @@ func (r Recipient) toBytes(tx_version uint32) []byte {
 	case uint32(1):
 		buf = append(buf, r.Address...)
 	case uint32(2):
-		if r.Action == nil && r.ArgsJson == nil {
+		if r.Action == nil && r.Args == nil {
 			// 0 = unnamed action
 			buf = append(buf, uint8(0))
 			buf = append(buf, r.Address...)
@@ -226,10 +226,15 @@ func (r Recipient) toBytes(tx_version uint32) []byte {
 			buf = append(buf, r.Address...)
 			buf = appendSizeAndContent(buf, r.Action, 8)
 
-			size, argsSize := convertToMinimumBytes(len(r.ArgsJson))
+			argsJson, err := json.Marshal(r.Args)
+			if err != nil {
+				panic("invalid recipient's args")
+			}
+
+			size, argsSize := convertToMinimumBytes(len(argsJson))
 			buf = append(buf, byte(size))
 			buf = append(buf, argsSize...)
-			buf = append(buf, r.ArgsJson...)
+			buf = append(buf, argsJson...)
 		}
 	}
 
@@ -300,11 +305,11 @@ func (t *TransactionBuilder) AddRecipient(address []byte) {
 		Address: address,
 	})
 }
-func (t *TransactionBuilder) AddRecipientForNamedAction(address []byte, action []byte, argsJson []byte) {
+func (t *TransactionBuilder) AddRecipientForNamedAction(address []byte, action []byte, args []interface{}) {
 	t.Data.Recipients = append(t.Data.Recipients, Recipient{
-		Address:  address,
-		Action:   action,
-		ArgsJson: argsJson,
+		Address: address,
+		Action:  action,
+		Args:    args,
 	})
 }
 
@@ -516,12 +521,10 @@ func (t *TransactionBuilder) ToJSONMap() (map[string]interface{}, error) {
 	for i, r := range t.Data.Recipients {
 		// nullable args
 		var args interface{}
-		if len(r.ArgsJson) == 0 {
+		if r.Args == nil {
 			args = nil
 		} else {
-			if err := json.Unmarshal(r.ArgsJson, &args); err != nil {
-				return nil, err
-			}
+			args = r.Args
 		}
 
 		// nullable action

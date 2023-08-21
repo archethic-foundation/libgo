@@ -204,7 +204,7 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	tx.AddRecipientForNamedAction(
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 		[]byte("vote_for_class_president"),
-		[]byte("[\"Judy\"]"))
+		[]interface{}{"Judy"})
 
 	publicKey, _, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
 	address, _ := DeriveAddress([]byte("seed"), 1, ED25519, SHA256)
@@ -507,7 +507,7 @@ func TestToJSONMap(t *testing.T) {
 	tx.SetCode(code)
 	tx.SetContent([]byte(content))
 	tx.AddRecipient(address)
-	tx.AddRecipientForNamedAction(address, []byte("vote_for_class_president"), []byte("[\"Rudy\"]"))
+	tx.AddRecipientForNamedAction(address, []byte("vote_for_class_president"), []interface{}{"Rudy"})
 	tx.AddTokenTransfer(address, address, 33, 65)
 	tx.AddUcoTransfer(address, 64)
 
