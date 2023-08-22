@@ -3,7 +3,6 @@ package archethic
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"math"
 )
@@ -502,14 +501,6 @@ func (t *TransactionBuilder) ToJSONMap() (map[string]interface{}, error) {
 		m["originSignature"] = hex.EncodeToString(t.OriginSignature)
 	}
 	return m, nil
-}
-
-func (t *TransactionBuilder) ToJSON() ([]byte, error) {
-	jsonMap, err := t.ToJSONMap()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(jsonMap)
 }
 
 func (t TransactionType) String() (string, error) {

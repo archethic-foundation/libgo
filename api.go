@@ -217,7 +217,10 @@ func (c *APIClient) SendTransaction(tx *TransactionBuilder) (SendTransactionResp
 	if err != nil {
 		return response, err
 	}
-	err = c.jsonRpcClient.CallFor(context.Background(), &response, "send_transaction", jsonMap)
+	request := map[string]interface{}{
+		"transaction": jsonMap,
+	}
+	err = c.jsonRpcClient.CallFor(context.Background(), &response, "send_transaction", request)
 	return response, err
 }
 
@@ -227,7 +230,10 @@ func (c *APIClient) GetTransactionFee(tx *TransactionBuilder) (Fee, error) {
 	if err != nil {
 		return fee, err
 	}
-	err = c.jsonRpcClient.CallFor(context.Background(), &fee, "estimate_transaction_fee", jsonMap)
+	request := map[string]interface{}{
+		"transaction": jsonMap,
+	}
+	err = c.jsonRpcClient.CallFor(context.Background(), &fee, "estimate_transaction_fee", request)
 	return fee, err
 }
 
@@ -249,7 +255,10 @@ func (c *APIClient) SimulateContractExecution(tx *TransactionBuilder) ([]Simulat
 	if err != nil {
 		return result, err
 	}
-	err = c.jsonRpcClient.CallFor(context.Background(), &result, "simulate_contract_execution", jsonMap)
+	request := map[string]interface{}{
+		"transaction": jsonMap,
+	}
+	err = c.jsonRpcClient.CallFor(context.Background(), &result, "simulate_contract_execution", request)
 	return result, err
 }
 
