@@ -305,7 +305,7 @@ func (t *TransactionBuilder) AddRecipient(address []byte) {
 		Address: address,
 	})
 }
-func (t *TransactionBuilder) AddRecipientForNamedAction(address []byte, action []byte, args []interface{}) {
+func (t *TransactionBuilder) AddRecipientWithNamedAction(address []byte, action []byte, args []interface{}) {
 	t.Data.Recipients = append(t.Data.Recipients, Recipient{
 		Address: address,
 		Action:  action,

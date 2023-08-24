@@ -135,7 +135,7 @@ import (
   Adds a recipient to call the smart contract's "transaction" action.
   - `to` is the contract's address in hexadecimal
 
-  #### AddRecipientForNamedAction(to, action, args)
+  #### AddRecipientWithNamedAction(to, action, args)
   Adds a recipient to call a specific smart contract's action.
   - `to` is the contract's address in hexadecimal
   - `action` is the name of the action
