@@ -3,6 +3,7 @@ package archethic
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"math"
 )
