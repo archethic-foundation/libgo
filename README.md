@@ -57,10 +57,10 @@ import (
 
   #### ecEncrypt(data, publicKey)
   Perform an ECIES encryption using a public key and a data
-  
+
   - `data` Data to encrypt
   - `publicKey` Public key to derive a shared secret and for whom the content must be encrypted
-  
+
   ```go
   import (
     ...
@@ -97,25 +97,25 @@ import (
    <br/>
 
   `tx := archethic.TransactionBuilder{}` creates a new instance of the transaction
-  
+
   The transaction instance contains the following methods:
-  
+
   #### SetType(type)
   Sets the type of the transaction (could be `TransferType`, `ContractType`, `DataType`, `TokenType`, `HostingType`, `CodeProposalType`, `CodeApprovalType`)
 
   #### SetCode(code)
   Adds the code in the `data.code` section of the transaction
   `code` is a string defining the smart contract
-  
+
   #### SetContent(content)
   Adds the content in the `data.content` section of the transaction
   `content` is a string defining the smart contract
-  
+
   #### AddOwnership(secret, authorizedKeys)
    Adds an ownership in the `data.ownerships` section of the transaction with a secret and its related authorized public keys to be able to decrypt it.
    This aims to prove the ownership or the delegatation of some secret to a given list of public keys.
   `secret` is the slice of bytes representing the encrypted secret
-  `authorizedKeys` is a list of object represented by 
+  `authorizedKeys` is a list of object represented by
   - `publicKey` is the slice of bytes representing the public key
   - `encryptedSecretKey` is the slice of bytes representing the secret key encrypted with the public key (see `ecEncrypt`)
 
@@ -132,20 +132,26 @@ import (
   - `tokenId` is the ID of the token to use
 
   #### AddRecipient(to)
-  Adds a recipient (for non UCO transfers, ie. smart contract interaction) to the `data.recipient` section of the transaction
-  - `to` is the slice of bytes representing the transaction address (recipient)
-  
+  Adds a recipient to call the smart contract's "transaction" action.
+  - `to` is the contract's address in hexadecimal
+
+  #### AddRecipientWithNamedAction(to, action, args)
+  Adds a recipient to call a specific smart contract's action.
+  - `to` is the contract's address in hexadecimal
+  - `action` is the name of the action
+  - `args` is the list of arguments of the action
+
   #### Build(seed, index, curve, hashAlgo)
-  Generates `address`, `timestamp`, `previousPublicKey`, `previousSignature` of the transaction and 
+  Generates `address`, `timestamp`, `previousPublicKey`, `previousSignature` of the transaction and
   serialize it using a custom binary protocol.
-  
+
   - `seed` is the slice of bytes representing the transaction chain seed to be able to derive and generate the keys
   - `index` is the number of transactions in the chain, to generate the actual and the next public key (see below the cryptography section)
   - `curve` is the elliptic curve to use for the key generation (can be "ED25519", "P256", "SECP256K1")
   - `hashAlgo` is the hash algorithm to use to generate the address (can be "SHA256", "SHA512", "SHA3_256", "SHA3_512", "BLAKE2B")
-  
+
   ```go
-  
+
   import(
     ...
     archethic "github.com/archethic-foundation/libgo"
@@ -205,7 +211,7 @@ import (
 	tx.Build([]byte("mysuperpassphraseorseed"), 0, archethic.ED25519, archethic.SHA256)
     json, _ := tx.ToJSON()
   ```
-  
+
   </details>
    <br/>
    <details>
@@ -235,7 +241,7 @@ import (
   ```golang
     client := archethic.NewAPIClient("http://localhost:4000")
     client.GetLastTransactionIndex("0000872D96130A2963F1195D1F85FC316AE966644F2E3EE45469C2A257F49C4631C2")
-  ``` 
+  ```
 
   #### GetStorageNoncePublicKey()
   Query a node to find the public key of the shared storage node key
@@ -244,15 +250,15 @@ import (
   	client := archethic.NewAPIClient("https://testnet.archethic.net/api")
 	client.GetStorageNoncePublicKey()
     // 00017877BCF4122095926A49489009649603AB129822A19EF9D573B8FD714911ED7F
-  ``` 
+  ```
 
   #### GetTransactionFee(tx)
   Query a node to fetch the tx fee for a given transaction
-  
+
   - `tx` Generated transaction
-  
+
   ```golang
-  
+
     client := archethic.NewAPIClient("http://localhost:4000")
 
 	tx := archethic.TransactionBuilder{}
@@ -305,19 +311,19 @@ import (
   ```go
   client := archethic.NewAPIClient("http://localhost:4000")
   keychain := archethic.GetKeychain([]byte("seed"), *client)
-  ```  
+  ```
 
   Once retrieved the keychain provide the following methods:
 
   #### (k Keychain) BuildTransaction(transaction TransactionBuilder, serviceName string, index uint8) TransactionBuilder
-  Generate `address`, `previousPublicKey`, `previousSignature` of the transaction and 
+  Generate `address`, `previousPublicKey`, `previousSignature` of the transaction and
   serialize it using a custom binary protocol, based on the derivation path, curve and hash algo of the service given in param.
 
   - `transaction` is an instance of `TransactionBuilder`
   - `serviceName` is the service name to use for getting the derivation path, the curve and the hash algo
   - `index` is the number of transactions in the chain, to generate the actual and the next public key (see the cryptography section)
 
-  Returns is the signed `TransactionBuilder`. 
+  Returns is the signed `TransactionBuilder`.
 
   ```go
 
@@ -353,19 +359,19 @@ import (
 	keychain := archethic.NewKeychain(seed)
 	publicKey, _ := keychain.DeriveKeypair("uco", 0)
 	address := archethic.DeriveAddress(seed, 0, keychain.Services["uco"].Curve, keychain.Services["uco"].HashAlgo)
-  ``` 
+  ```
 
   #### (k Keychain) DeriveKeypair(serviceName string, index uint8) ([]byte, []byte)
   Derive a keypair for the given service at the index given
 
   - `service`: Service name to identify the derivation path to use
   - `index`: Chain index to derive
-  
+
   ```go
   seed := []byte("abcdefghijklmnopqrstuvwxyz")
 	keychain := archethic.NewKeychain(seed)
 	publicKey, _ := keychain.DeriveKeypair("uco", 0)
-  ``` 
+  ```
 
   #### (k Keychain) ToDID() DID
   Return a Decentralized Identity document from the keychain. (This is used in the transaction's content of the keychain tx)

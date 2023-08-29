@@ -12,9 +12,9 @@ import (
 type TransactionType uint8
 
 const (
-	Version            uint32          = 1
-	KeychainAccessType TransactionType = 254
+	Version            uint32          = 2
 	KeychainType       TransactionType = 255
+	KeychainAccessType TransactionType = 254
 	TransferType       TransactionType = 253
 	HostingType        TransactionType = 252
 	TokenType          TransactionType = 251
@@ -39,10 +39,10 @@ type TransactionData struct {
 	Code       []byte
 	Ledger     Ledger
 	Ownerships []Ownership
-	Recipients [][]byte
+	Recipients []Recipient
 }
 
-func (t TransactionData) toBytes() []byte {
+func (t TransactionData) toBytes(tx_version uint32) []byte {
 	buf := make([]byte, 0)
 
 	// Encode code
@@ -58,16 +58,7 @@ func (t TransactionData) toBytes() []byte {
 	buf = append(buf, t.Ledger.toBytes()...)
 
 	// Encode recipients
-	recipientsBytes := make([]byte, 0)
-	for i := 0; i < len(t.Recipients); i++ {
-		recipientsBytes = append(recipientsBytes, t.Recipients[i]...)
-	}
-	size, recipientSize := convertToMinimumBytes(len(t.Recipients))
-	buf = append(buf, byte(size))
-	buf = append(buf, recipientSize...)
-
-	buf = append(buf, recipientsBytes...)
-
+	buf = append(buf, t.recipientsBytes(tx_version)...)
 	return buf
 }
 
@@ -80,6 +71,19 @@ func (t TransactionData) ownershipsBytes() []byte {
 
 	for i := 0; i < len(t.Ownerships); i++ {
 		buf = append(buf, t.Ownerships[i].toBytes()...)
+	}
+	return buf
+}
+
+func (t TransactionData) recipientsBytes(tx_version uint32) []byte {
+	buf := make([]byte, 0)
+
+	size, recipientsSize := convertToMinimumBytes(len(t.Recipients))
+	buf = append(buf, byte(size))
+	buf = append(buf, recipientsSize...)
+
+	for i := 0; i < len(t.Recipients); i++ {
+		buf = append(buf, t.Recipients[i].toBytes(tx_version)...)
 	}
 	return buf
 }
@@ -198,6 +202,44 @@ func (o Ownership) toBytes() []byte {
 	return buf
 }
 
+type Recipient struct {
+	Address []byte
+	Action  []byte
+	Args    []interface{}
+}
+
+func (r Recipient) toBytes(tx_version uint32) []byte {
+	buf := make([]byte, 0)
+
+	switch tx_version {
+	case uint32(1):
+		buf = append(buf, r.Address...)
+	case uint32(2):
+		if r.Action == nil && r.Args == nil {
+			// 0 = unnamed action
+			buf = append(buf, uint8(0))
+			buf = append(buf, r.Address...)
+		} else {
+			// 1 = named action
+			buf = append(buf, uint8(1))
+			buf = append(buf, r.Address...)
+			buf = appendSizeAndContent(buf, r.Action, 8)
+
+			argsJson, err := json.Marshal(r.Args)
+			if err != nil {
+				panic("invalid recipient's args")
+			}
+
+			size, argsSize := convertToMinimumBytes(len(argsJson))
+			buf = append(buf, byte(size))
+			buf = append(buf, argsSize...)
+			buf = append(buf, argsJson...)
+		}
+	}
+
+	return buf
+}
+
 type AuthorizedKey struct {
 	PublicKey          []byte
 	EncryptedSecretKey []byte
@@ -220,7 +262,7 @@ func NewTransaction(txType TransactionType) *TransactionBuilder {
 				},
 			},
 			Ownerships: []Ownership{},
-			Recipients: [][]byte{},
+			Recipients: []Recipient{},
 		},
 	}
 }
@@ -258,7 +300,16 @@ func (t *TransactionBuilder) AddTokenTransfer(to []byte, tokenAddress []byte, am
 }
 
 func (t *TransactionBuilder) AddRecipient(address []byte) {
-	t.Data.Recipients = append(t.Data.Recipients, address)
+	t.Data.Recipients = append(t.Data.Recipients, Recipient{
+		Address: address,
+	})
+}
+func (t *TransactionBuilder) AddRecipientWithNamedAction(address []byte, action []byte, args []interface{}) {
+	t.Data.Recipients = append(t.Data.Recipients, Recipient{
+		Address: address,
+		Action:  action,
+		Args:    args,
+	})
 }
 
 func (t *TransactionBuilder) AddOwnership(secret []byte, authorizedKeys []AuthorizedKey) {
@@ -317,8 +368,7 @@ func (t *TransactionBuilder) OriginSign(originPrivateKey []byte) error {
 }
 
 func (t TransactionBuilder) previousSignaturePayload() []byte {
-	versionBytes := []byte{0, 0, 0, 0}
-
+	versionBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(versionBytes, t.Version)
 
 	buf := make([]byte, 0)
@@ -326,7 +376,7 @@ func (t TransactionBuilder) previousSignaturePayload() []byte {
 	buf = append(buf, versionBytes...)
 	buf = append(buf, t.Address...)
 	buf = append(buf, byte(t.TxType))
-	buf = append(buf, t.Data.toBytes()...)
+	buf = append(buf, t.Data.toBytes(t.Version)...)
 
 	return buf
 }
@@ -466,9 +516,29 @@ func (t *TransactionBuilder) ToJSONMap() (map[string]interface{}, error) {
 			"tokenId":      t.TokenId,
 		}
 	}
-	recipients := make([]string, len(t.Data.Recipients))
+	recipients := make([]map[string]interface{}, len(t.Data.Recipients))
 	for i, r := range t.Data.Recipients {
-		recipients[i] = hex.EncodeToString(r)
+		// nullable args
+		var args interface{}
+		if r.Args == nil {
+			args = nil
+		} else {
+			args = r.Args
+		}
+
+		// nullable action
+		var action interface{}
+		if len(r.Action) == 0 {
+			action = nil
+		} else {
+			action = string(r.Action)
+		}
+
+		recipients[i] = map[string]interface{}{
+			"address": hex.EncodeToString(r.Address),
+			"action":  action,
+			"args":    args,
+		}
 	}
 	data := map[string]interface{}{
 		"content":    hex.EncodeToString(t.Data.Content),
