@@ -499,7 +499,6 @@ func TestToJSONMap(t *testing.T) {
 	address, _ := hex.DecodeString(addressHex)
 	code := "@version 1\ncondition inherit: []"
 	content := "hello"
-	contentHex := "68656c6c6f"
 
 	// prepare
 	tx := NewTransaction(DataType)
@@ -527,7 +526,7 @@ func TestToJSONMap(t *testing.T) {
 	if data["code"] != code {
 		t.Error("Unexpected code")
 	}
-	if data["content"] != contentHex {
+	if data["content"] != content {
 		t.Error("Unexpected content")
 	}
 
