@@ -542,7 +542,7 @@ func (t *TransactionBuilder) ToJSONMap() (map[string]interface{}, error) {
 		}
 	}
 	data := map[string]interface{}{
-		"content":    hex.EncodeToString(t.Data.Content),
+		"content":    string(t.Data.Content),
 		"code":       string(t.Data.Code),
 		"ownerships": ownerships,
 		"ledger": map[string]interface{}{
