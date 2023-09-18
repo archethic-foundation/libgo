@@ -197,13 +197,23 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	tx.SetContent(content)
 
 	// a unnamed action
-	tx.AddRecipient(
-		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"))
+	tx.AddRecipient([]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"))
+
+	// a named action
+	var nestedObj = make(map[string]interface{})
+	nestedObj["a"] = "foo"
+	nestedObj["z"] = "bar"
+	nestedObj["x"] = 4
+	var arg2 = make(map[string]interface{})
+	arg2["category"] = 3
+	arg2["address"] = 2
+	arg2["brand"] = "abc"
+	arg2["nested"] = nestedObj
 
 	args := make([]interface{}, 0)
 	args = append(args, "Judy")
+	args = append(args, arg2)
 
-	// a named action
 	tx.AddRecipientWithNamedAction(
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 		[]byte("vote_for_class_president"),
@@ -287,10 +297,51 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	// recipient #2 action
 	expectedBinary = append(expectedBinary, []byte{24}...)
 	expectedBinary = append(expectedBinary, []byte("vote_for_class_president")...)
+
 	// recipient #2 args
-	expectedArgs, _ := SerializeTypedData("Judy")
-	expectedBinary = append(expectedBinary, byte(1))
-	expectedBinary = append(expectedBinary, expectedArgs...)
+	expectedBinary = append(expectedBinary, byte(2))
+
+	arg1Bytes, _ := SerializeTypedData("Judy")
+	expectedBinary = append(expectedBinary, arg1Bytes...)
+
+	// Ensure keys order of the serialized map
+	arg2Bytes := make([]byte, 0)
+	var mBytes []byte
+
+	arg2Bytes = append(arg2Bytes, byte(MapType))
+	arg2Bytes = append(arg2Bytes, EncodeVarInt(4)...)
+
+	mBytes, _ = SerializeTypedData("address")
+	arg2Bytes = append(arg2Bytes, mBytes...)
+	mBytes, _ = SerializeTypedData(arg2["address"])
+	arg2Bytes = append(arg2Bytes, mBytes...)
+	mBytes, _ = SerializeTypedData("brand")
+	arg2Bytes = append(arg2Bytes, mBytes...)
+	mBytes, _ = SerializeTypedData(arg2["brand"])
+	arg2Bytes = append(arg2Bytes, mBytes...)
+	mBytes, _ = SerializeTypedData("category")
+	arg2Bytes = append(arg2Bytes, mBytes...)
+	mBytes, _ = SerializeTypedData(arg2["category"])
+	arg2Bytes = append(arg2Bytes, mBytes...)
+	mBytes, _ = SerializeTypedData("nested")
+	arg2Bytes = append(arg2Bytes, mBytes...)
+
+	arg2Bytes = append(arg2Bytes, byte(MapType))
+	arg2Bytes = append(arg2Bytes, EncodeVarInt(3)...)
+	mBytes, _ = SerializeTypedData("a")
+	arg2Bytes = append(arg2Bytes, mBytes...)
+	mBytes, _ = SerializeTypedData(nestedObj["a"])
+	arg2Bytes = append(arg2Bytes, mBytes...)
+	mBytes, _ = SerializeTypedData("x")
+	arg2Bytes = append(arg2Bytes, mBytes...)
+	mBytes, _ = SerializeTypedData(nestedObj["x"])
+	arg2Bytes = append(arg2Bytes, mBytes...)
+	mBytes, _ = SerializeTypedData("z")
+	arg2Bytes = append(arg2Bytes, mBytes...)
+	mBytes, _ = SerializeTypedData(nestedObj["z"])
+	arg2Bytes = append(arg2Bytes, mBytes...)
+
+	expectedBinary = append(expectedBinary, arg2Bytes...)
 
 	if !reflect.DeepEqual(payload, expectedBinary) {
 		t.Errorf("expected payload %v, got %v", expectedBinary, payload)
