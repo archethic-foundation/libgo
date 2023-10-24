@@ -43,7 +43,7 @@ func EncodeVarInt(number uint64) []byte {
 }
 
 // DecodeVarInt convert a VarInt binary into a integer
-func DecodeVarInt(bytes []byte) uint64 {
+func DecodeVarInt(bytes []byte) (uint64, []byte) {
 	size := bytes[0]
 	data := bytes[1 : 1+int(size)]
 
@@ -52,5 +52,13 @@ func DecodeVarInt(bytes []byte) uint64 {
 		value = (value << 8) + int(data[i])
 	}
 
-	return uint64(value)
+	return uint64(value), bytes[size+1:]
+}
+
+func ToBigInt(number float64) uint64 {
+	return uint64(number * float64(100000000))
+}
+
+func FromBigInt(number uint64) float64 {
+	return float64(number) / 100000000
 }
