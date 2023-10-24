@@ -13,7 +13,7 @@ import (
 type TransactionType uint8
 
 const (
-	Version            uint32          = 2
+	Version            uint32          = 3
 	KeychainType       TransactionType = 255
 	KeychainAccessType TransactionType = 254
 	TransferType       TransactionType = 253
@@ -206,10 +206,9 @@ type Recipient struct {
 func (r Recipient) toBytes(tx_version uint32) []byte {
 	buf := make([]byte, 0)
 
-	switch tx_version {
-	case uint32(1):
+	if tx_version == 1 {
 		buf = append(buf, r.Address...)
-	case uint32(2):
+	} else {
 		if r.Action == nil && r.Args == nil {
 			// 0 = unnamed action
 			buf = append(buf, uint8(0))
@@ -219,15 +218,26 @@ func (r Recipient) toBytes(tx_version uint32) []byte {
 			buf = append(buf, uint8(1))
 			buf = append(buf, r.Address...)
 			buf = appendSizeAndContent(buf, r.Action, 8)
+			if tx_version == 2 {
+				argsJson, err := json.Marshal(r.Args)
+				if err != nil {
+					panic("invalid recipient's args")
+				}
 
-			argsJson, err := json.Marshal(r.Args)
-			if err != nil {
-				panic("invalid recipient's args")
+				encodedSize := EncodeVarInt(uint64(len(argsJson)))
+				buf = append(buf, encodedSize...)
+				buf = append(buf, argsJson...)
+			} else {
+				buf = append(buf, byte(len(r.Args)))
+				for i := 0; i < len(r.Args); i++ {
+					arsBytes, err := SerializeTypedData(r.Args[i])
+					if err != nil {
+						panic("invalid recipient's arg")
+					}
+					buf = append(buf, arsBytes...)
+				}
+
 			}
-
-			encodedSize := EncodeVarInt(uint64(len(argsJson)))
-			buf = append(buf, encodedSize...)
-			buf = append(buf, argsJson...)
 		}
 	}
 
