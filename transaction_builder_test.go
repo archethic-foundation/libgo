@@ -200,11 +200,15 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	tx.AddRecipient(
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"))
 
+	args := make([]interface{}, 0)
+	args = append(args, "Judy")
+
 	// a named action
 	tx.AddRecipientWithNamedAction(
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 		[]byte("vote_for_class_president"),
-		[]interface{}{"Judy"})
+		args,
+	)
 
 	publicKey, _, _ := DeriveKeypair([]byte("seed"), 0, ED25519)
 	address, _ := DeriveAddress([]byte("seed"), 1, ED25519, SHA256)
@@ -216,7 +220,7 @@ func TestPreviousSignaturePayload(t *testing.T) {
 
 	expectedBinary := make([]byte, 0)
 	// Version
-	expectedBinary = append(expectedBinary, EncodeInt32(2)...)
+	expectedBinary = append(expectedBinary, EncodeInt32(3)...)
 	expectedBinary = append(expectedBinary, tx.Address...)
 	expectedBinary = append(expectedBinary, []byte{253}...)
 
@@ -284,17 +288,13 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{24}...)
 	expectedBinary = append(expectedBinary, []byte("vote_for_class_president")...)
 	// recipient #2 args
-	expectedBinary = append(expectedBinary, []byte{1}...)
-	expectedBinary = append(expectedBinary, []byte{8}...)
-	expectedBinary = append(expectedBinary, []byte("[\"Judy\"]")...)
-	// expectedBinary = append(expectedBinary, publicKey...)
-	// expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(tx.previousSignature)))...)
-	// expectedBinary = append(expectedBinary, tx.previousSignature...)
+	expectedArgs, _ := SerializeTypedData("Judy")
+	expectedBinary = append(expectedBinary, byte(1))
+	expectedBinary = append(expectedBinary, expectedArgs...)
 
 	if !reflect.DeepEqual(payload, expectedBinary) {
 		t.Errorf("expected payload %v, got %v", expectedBinary, payload)
 	}
-
 }
 
 func TestSetPreviousSignatureAndPreviousPublicKey(t *testing.T) {
@@ -407,7 +407,7 @@ func TestOriginSignaturePayload(t *testing.T) {
 
 	expectedBinary := make([]byte, 0)
 	// Version
-	expectedBinary = append(expectedBinary, EncodeInt32(2)...)
+	expectedBinary = append(expectedBinary, EncodeInt32(3)...)
 	expectedBinary = append(expectedBinary, tx.Address...)
 	expectedBinary = append(expectedBinary, []byte{253}...)
 

@@ -13,7 +13,7 @@ import (
 type TransactionType uint8
 
 const (
-	Version            uint32          = 2
+	Version            uint32          = 3
 	KeychainType       TransactionType = 255
 	KeychainAccessType TransactionType = 254
 	TransferType       TransactionType = 253
@@ -66,9 +66,8 @@ func (t TransactionData) toBytes(tx_version uint32) []byte {
 func (t TransactionData) ownershipsBytes() []byte {
 	buf := make([]byte, 0)
 
-	size, ownerShipSize := convertToMinimumBytes(len(t.Ownerships))
-	buf = append(buf, byte(size))
-	buf = append(buf, ownerShipSize...)
+	encodedVarInt := EncodeVarInt(uint64(len(t.Ownerships)))
+	buf = append(buf, encodedVarInt...)
 
 	for i := 0; i < len(t.Ownerships); i++ {
 		buf = append(buf, t.Ownerships[i].toBytes()...)
@@ -79,9 +78,8 @@ func (t TransactionData) ownershipsBytes() []byte {
 func (t TransactionData) recipientsBytes(tx_version uint32) []byte {
 	buf := make([]byte, 0)
 
-	size, recipientsSize := convertToMinimumBytes(len(t.Recipients))
-	buf = append(buf, byte(size))
-	buf = append(buf, recipientsSize...)
+	encodedVarInt := EncodeVarInt(uint64(len(t.Recipients)))
+	buf = append(buf, encodedVarInt...)
 
 	for i := 0; i < len(t.Recipients); i++ {
 		buf = append(buf, t.Recipients[i].toBytes(tx_version)...)
@@ -113,9 +111,8 @@ func (l UcoLedger) toBytes() []byte {
 		ucoBytes = append(ucoBytes, l.Transfers[i].toBytes()...)
 	}
 
-	size, transferSize := convertToMinimumBytes(len(l.Transfers))
-	buf = append(buf, byte(size))
-	buf = append(buf, transferSize...)
+	encodedVarInt := EncodeVarInt(uint64(len(l.Transfers)))
+	buf = append(buf, encodedVarInt...)
 	buf = append(buf, ucoBytes...)
 	return buf
 }
@@ -148,9 +145,8 @@ func (l TokenLedger) toBytes() []byte {
 		tokenBytes = append(tokenBytes, l.Transfers[i].toBytes()...)
 	}
 
-	size, transferSize := convertToMinimumBytes(len(l.Transfers))
-	buf = append(buf, byte(size))
-	buf = append(buf, transferSize...)
+	encodedVarInt := EncodeVarInt(uint64(len(l.Transfers)))
+	buf = append(buf, encodedVarInt...)
 	buf = append(buf, tokenBytes...)
 	return buf
 }
@@ -171,9 +167,8 @@ func (t TokenTransfer) toBytes() []byte {
 	binary.BigEndian.PutUint64(amountBytes, t.Amount)
 	buf = append(buf, amountBytes...)
 
-	size, tokenIdByte := convertToMinimumBytes(t.TokenId)
-	buf = append(buf, byte(size))
-	buf = append(buf, tokenIdByte...)
+	encodedVarInt := EncodeVarInt(uint64(t.TokenId))
+	buf = append(buf, encodedVarInt...)
 
 	return buf
 }
@@ -195,9 +190,8 @@ func (o Ownership) toBytes() []byte {
 		authorizedKeysBuf = append(authorizedKeysBuf, authorizedKey.EncryptedSecretKey...)
 	}
 
-	size, authorizedKeySize := convertToMinimumBytes(len(o.AuthorizedKeys))
-	buf = append(buf, byte(size))
-	buf = append(buf, authorizedKeySize...)
+	encodedVarInt := EncodeVarInt(uint64(len(o.AuthorizedKeys)))
+	buf = append(buf, encodedVarInt...)
 	buf = append(buf, authorizedKeysBuf...)
 
 	return buf
@@ -212,10 +206,9 @@ type Recipient struct {
 func (r Recipient) toBytes(tx_version uint32) []byte {
 	buf := make([]byte, 0)
 
-	switch tx_version {
-	case uint32(1):
+	if tx_version == 1 {
 		buf = append(buf, r.Address...)
-	case uint32(2):
+	} else {
 		if r.Action == nil && r.Args == nil {
 			// 0 = unnamed action
 			buf = append(buf, uint8(0))
@@ -225,16 +218,26 @@ func (r Recipient) toBytes(tx_version uint32) []byte {
 			buf = append(buf, uint8(1))
 			buf = append(buf, r.Address...)
 			buf = appendSizeAndContent(buf, r.Action, 8)
+			if tx_version == 2 {
+				argsJson, err := json.Marshal(r.Args)
+				if err != nil {
+					panic("invalid recipient's args")
+				}
 
-			argsJson, err := json.Marshal(r.Args)
-			if err != nil {
-				panic("invalid recipient's args")
+				encodedSize := EncodeVarInt(uint64(len(argsJson)))
+				buf = append(buf, encodedSize...)
+				buf = append(buf, argsJson...)
+			} else {
+				buf = append(buf, byte(len(r.Args)))
+				for i := 0; i < len(r.Args); i++ {
+					arsBytes, err := SerializeTypedData(r.Args[i])
+					if err != nil {
+						panic("invalid recipient's arg")
+					}
+					buf = append(buf, arsBytes...)
+				}
+
 			}
-
-			size, argsSize := convertToMinimumBytes(len(argsJson))
-			buf = append(buf, byte(size))
-			buf = append(buf, argsSize...)
-			buf = append(buf, argsJson...)
 		}
 	}
 
@@ -406,73 +409,6 @@ func appendSizeAndContent(buf []byte, input []byte, bitSize int) []byte {
 	}
 	buf = append(buf, input...)
 	return buf
-}
-
-func convertToMinimumBytes(length int) (int, []byte) {
-
-	// determine the minimum number of bytes necessary to represent the length
-	var size int
-	bigIntLength := int64(length)
-
-	switch {
-	case bigIntLength <= 0xff:
-		size = 1
-	case bigIntLength <= 0xffff:
-		size = 2
-	case bigIntLength <= 0xffffff:
-		size = 3
-	case bigIntLength <= 0xffffffff:
-		size = 4
-	case bigIntLength <= 0xffffffffff:
-		size = 5
-	case bigIntLength <= 0xffffffffffff:
-		size = 6
-	case bigIntLength <= 0xffffffffffffff:
-		size = 7
-	default:
-		size = 8
-	}
-
-	// create a byte slice of the appropriate size
-	bytes := make([]byte, size)
-
-	// convert the uint64 length to bytes and store it in the byte slice
-	switch size {
-	case 1:
-		bytes[0] = byte(length)
-	case 2:
-		binary.BigEndian.PutUint16(bytes, uint16(length))
-	case 3:
-		bytes[0] = byte(length & 0xff)
-		bytes[1] = byte((length >> 8) & 0xff)
-		bytes[2] = byte((length >> 16) & 0xff)
-	case 4:
-		binary.BigEndian.PutUint32(bytes, uint32(length))
-	case 5:
-		bytes[0] = byte(length & 0xff)
-		bytes[1] = byte((length >> 8) & 0xff)
-		bytes[2] = byte((length >> 16) & 0xff)
-		bytes[3] = byte((length >> 24) & 0xff)
-		bytes[4] = byte((length >> 32) & 0xff)
-	case 6:
-		bytes[0] = byte(length & 0xff)
-		bytes[1] = byte((length >> 8) & 0xff)
-		bytes[2] = byte((length >> 16) & 0xff)
-		bytes[3] = byte((length >> 24) & 0xff)
-		bytes[4] = byte((length >> 32) & 0xff)
-		bytes[5] = byte((length >> 40) & 0xff)
-	case 7:
-		bytes[0] = byte(length & 0xff)
-		bytes[1] = byte((length >> 8) & 0xff)
-		bytes[2] = byte((length >> 16) & 0xff)
-		bytes[3] = byte((length >> 24) & 0xff)
-		bytes[4] = byte((length >> 32) & 0xff)
-		bytes[5] = byte((length >> 40) & 0xff)
-		bytes[6] = byte((length >> 48) & 0xff)
-	default:
-		binary.BigEndian.PutUint64(bytes, uint64(length))
-	}
-	return size, bytes
 }
 
 func ToUint64(number float64, decimals int) (uint64, error) {
