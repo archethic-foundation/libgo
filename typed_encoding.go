@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sort"
 )
 
 type EncodedType uint8
@@ -29,18 +30,21 @@ func SerializeTypedData(val interface{}) ([]byte, error) {
 	case reflect.String:
 		return serializeString(val.(string)), nil
 	case reflect.Map:
-		mapValue := make(map[interface{}]interface{})
-		// Iterate over the map using reflection
-		for _, key := range rVal.MapKeys() {
-			// Convert the key and value to interface{} using reflection
-			interfaceKey := key.Interface()
-			interfaceValue := rVal.MapIndex(key).Interface()
+		keys := make([]string, 0)
+		m := make(map[string]interface{}, 0)
 
-			// Assign the key-value pair to the map
-			mapValue[interfaceKey] = interfaceValue
+		for _, key := range rVal.MapKeys() {
+			switch k := key.Interface().(type) {
+			case string:
+				m[k] = rVal.MapIndex(key).Interface()
+				keys = append(keys, k)
+			default:
+				return nil, fmt.Errorf("map's key can only be string")
+			}
 		}
 
-		return serializeMap(mapValue)
+		sort.Strings(keys)
+		return serializeMap(keys, m)
 	case reflect.Slice:
 		// Create a new []interface{} slice
 		convertedSlice := make([]interface{}, rVal.Len())
@@ -118,21 +122,21 @@ func serializeList(data []any) ([]byte, error) {
 	return buf, nil
 }
 
-func serializeMap(data map[any]any) ([]byte, error) {
-	size := len(data)
+func serializeMap(sortedKeys []string, data map[string]interface{}) ([]byte, error) {
+	size := len(sortedKeys)
 
 	varIntEncoded := EncodeVarInt(uint64(size))
 
 	buf := make([]byte, 0)
 	buf = append(buf, byte(MapType))
 	buf = append(buf, varIntEncoded...)
-
-	for k, v := range data {
-		k_bytes, err := SerializeTypedData(k)
+	for _, key := range sortedKeys {
+		k_bytes, err := SerializeTypedData(key)
 		if err != nil {
 			return nil, err
 		}
 
+		v := data[key]
 		v_bytes, err := SerializeTypedData(v)
 		if err != nil {
 			return nil, err
@@ -222,10 +226,10 @@ func deserializeList(data []byte) ([]any, []byte, error) {
 	return buf, _remaining_bytes, nil
 }
 
-func deserializeMap(data []byte) (map[any]any, []byte, error) {
+func deserializeMap(data []byte) (map[string]any, []byte, error) {
 	var _remaining_bytes []byte
 	map_size, remaining_bytes := DecodeVarInt(data)
-	buf := map[any]any{}
+	buf := map[string]any{}
 
 	_remaining_bytes = remaining_bytes
 
@@ -246,12 +250,6 @@ func deserializeMap(data []byte) (map[any]any, []byte, error) {
 		switch v.Kind() {
 		case reflect.String:
 			buf[key_data.(string)] = value_data
-		case reflect.Int:
-			buf[key_data.(int)] = value_data
-		case reflect.Float64:
-			buf[key_data.(float64)] = value_data
-		case reflect.Bool:
-			buf[key_data.(bool)] = value_data
 		default:
 			return nil, nil, fmt.Errorf("key's type %s is not supported", v.Kind())
 		}
