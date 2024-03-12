@@ -5,6 +5,11 @@ import (
 	"regexp"
 )
 
+func OriginPrivateKey() []byte {
+	originPrivateKey, _ := hex.DecodeString("01019280BDB84B8F8AEDBA205FE3552689964A5626EE2C60AA10E3BF22A91A036009")
+	return originPrivateKey
+}
+
 // MaybeConvertToHex converts a string to a byte array if it is a hex string,
 // otherwise it returns the string as a byte array
 func MaybeConvertToHex(inputString string) ([]byte, error) {
