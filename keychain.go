@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -212,13 +211,17 @@ func (k Keychain) toBytes() []byte {
 }
 
 func (k Keychain) DeriveKeypair(serviceName string, index uint8) ([]byte, []byte, error) {
+	return k.DeriveKeypairWithSuffix(serviceName, index, "")
+}
+
+func (k Keychain) DeriveKeypairWithSuffix(serviceName string, index uint8, pathSuffix string) ([]byte, []byte, error) {
 	service, ok := k.Services[serviceName]
 
 	if !ok {
 		return nil, nil, errors.New("service doesn't exists in the keychain")
 	}
 
-	return DeriveArchethicKeypair(k.Seed, service.DerivationPath, index, service.Curve)
+	return DeriveArchethicKeypairWithSuffix(k.Seed, service.DerivationPath, index, service.Curve, pathSuffix)
 }
 
 func DeriveArchethicKeypair(seed []byte, derivationPath string, index uint8, curve Curve) ([]byte, []byte, error) {
@@ -252,8 +255,8 @@ func deriveServiceSeed(seed []byte, derivationPath string, index uint8, pathSuff
 func replaceDerivationPathIndex(derivationPath string, pathSuffix string, index uint8) string {
 	if isPathWithIndex(derivationPath) {
 		splitted := strings.Split(derivationPath, "/")
-		splitted[3] = strconv.Itoa(int(index))
-		return strings.Join(splitted, "/") + pathSuffix
+		splitted[2] = splitted[2] + pathSuffix
+		return strings.Join(splitted, "/")
 	} else {
 		return derivationPath + pathSuffix
 	}
