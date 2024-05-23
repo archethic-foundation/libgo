@@ -2,6 +2,9 @@ package archethic
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
 	"reflect"
@@ -135,5 +138,51 @@ func TestBuildTransaction(t *testing.T) {
 	if !test {
 		t.Errorf("Error when verifying the previous signature")
 		t.Error(err)
+	}
+}
+
+func TestDerivation(t *testing.T) {
+	seed := []byte("abcdefghijklmnopqrstuvwxyz")
+	keychainWithIndex := Keychain{Seed: seed, Version: 1, Services: map[string]Service{
+		"uco": {
+			DerivationPath: "m/650'/0/0",
+			Curve:          ED25519,
+			HashAlgo:       SHA256,
+		},
+	}}
+
+	keychainWithoutIndex := Keychain{Seed: seed, Version: 1, Services: map[string]Service{
+		"uco": {
+			DerivationPath: "m/650'/0",
+			Curve:          ED25519,
+			HashAlgo:       SHA256,
+		},
+	}}
+
+	publicKeyWithIndex, _, _ := keychainWithIndex.DeriveKeypair("uco", 0)
+	publicKeyWithoutIndex, _, _ := keychainWithoutIndex.DeriveKeypair("uco", 0)
+
+	if reflect.DeepEqual(publicKeyWithIndex, publicKeyWithoutIndex) {
+		t.Errorf("expected different keys with and without index")
+	}
+
+	h := sha256.New()
+	h.Write([]byte("m/650'/0"))
+	hashedPath := h.Sum(nil)
+
+	mac := hmac.New(sha512.New, seed)
+	mac.Write(hashedPath)
+	hmac := mac.Sum(nil)
+
+	// The first 32 bytes become the next private key
+	serviceSeed := hmac[:32]
+	pubKey, _, err := DeriveKeypair(serviceSeed, 0, ED25519)
+	if err != nil {
+		t.Errorf("cannot derive keypair")
+	}
+
+	if !reflect.DeepEqual(pubKey, publicKeyWithoutIndex) {
+		fmt.Printf("%v\n%v\n", pubKey, publicKeyWithIndex)
+		t.Errorf("wrong pubkey for derivationPath without index")
 	}
 }

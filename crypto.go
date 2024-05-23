@@ -103,7 +103,7 @@ func derivePrivateKey(seed []byte, index uint32) []byte {
 
 	// Derive the final seed
 	indexBuf := make([]byte, 4)
-	binary.BigEndian.PutUint32(indexBuf, uint32(index))
+	binary.BigEndian.PutUint32(indexBuf, index)
 	var extendedSeed []byte
 	extendedSeed = append(extendedSeed, masterKey...)
 	extendedSeed = append(extendedSeed, indexBuf...)

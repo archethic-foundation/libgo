@@ -222,23 +222,41 @@ func (k Keychain) DeriveKeypair(serviceName string, index uint8) ([]byte, []byte
 }
 
 func DeriveArchethicKeypair(seed []byte, derivationPath string, index uint8, curve Curve) ([]byte, []byte, error) {
-	indexedPath := replaceDerivationPathIndex(derivationPath, index)
+	return DeriveArchethicKeypairWithSuffix(seed, derivationPath, index, curve, "")
+}
+
+func DeriveArchethicKeypairWithSuffix(seed []byte, derivationPath string, index uint8, curve Curve, pathSuffix string) ([]byte, []byte, error) {
+	extendedSeed := deriveServiceSeed(seed, derivationPath, index, pathSuffix)
+	if isPathWithIndex(derivationPath) {
+		return GenerateDeterministicKeypair(extendedSeed, curve, KEYCHAIN_ORIGIN_ID)
+	} else {
+		return DeriveKeypair(extendedSeed, uint32(index), curve)
+	}
+}
+
+func isPathWithIndex(derivationPath string) bool {
+	return strings.Count(derivationPath, "/") == 3
+}
+
+func deriveServiceSeed(seed []byte, derivationPath string, index uint8, pathSuffix string) []byte {
 	h := sha256.New()
-	h.Write([]byte(indexedPath))
+	h.Write([]byte(replaceDerivationPathIndex(derivationPath, pathSuffix, index)))
 	hashedPath := h.Sum(nil)
 
 	hm := hmac.New(sha512.New, seed)
 	hm.Write(hashedPath)
 	extendedSeed := hm.Sum(nil)
-	extendedSeed = extendedSeed[:32]
-	return GenerateDeterministicKeypair(extendedSeed, curve, KEYCHAIN_ORIGIN_ID)
+	return extendedSeed[:32]
 }
 
-func replaceDerivationPathIndex(derivationPath string, index uint8) string {
-	splitted := strings.Split(derivationPath, "/")
-	splitted = splitted[:len(splitted)-1]
-	splitted = append(splitted, strconv.Itoa(int(index)))
-	return strings.Join(splitted[:], "/")
+func replaceDerivationPathIndex(derivationPath string, pathSuffix string, index uint8) string {
+	if isPathWithIndex(derivationPath) {
+		splitted := strings.Split(derivationPath, "/")
+		splitted[3] = strconv.Itoa(int(index))
+		return strings.Join(splitted, "/") + pathSuffix
+	} else {
+		return derivationPath + pathSuffix
+	}
 }
 
 func DecodeKeychain(binaryInput []byte) *Keychain {
