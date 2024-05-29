@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -256,6 +257,7 @@ func replaceDerivationPathIndex(derivationPath string, pathSuffix string, index 
 	if isPathWithIndex(derivationPath) {
 		splitted := strings.Split(derivationPath, "/")
 		splitted[2] = splitted[2] + pathSuffix
+		splitted[3] = strconv.FormatUint(uint64(index), 10)
 		return strings.Join(splitted, "/")
 	} else {
 		return derivationPath + pathSuffix
