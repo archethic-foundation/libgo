@@ -3,7 +3,6 @@ package archethic
 import (
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -17,7 +16,7 @@ type TransactionSender struct {
 	onConfirmation                   []func(nbConfirmations, maxConfirmations int)
 	onFullConfirmation               []func(maxConfirmations int)
 	onRequiredConfirmation           []func(nbConfirmations int)
-	onError                          []func(senderContext string, message error)
+	onError                          []func(senderContext string, error ErrorDetails)
 	onTimeout                        []func(nbConfirmationReceived int)
 	nbConfirmationReceived           int
 	timeout                          *Timeout
@@ -32,7 +31,7 @@ func NewTransactionSender(client *APIClient) *TransactionSender {
 		[]func(nbConfirmations, maxConfirmations int){},
 		[]func(maxConfirmations int){},
 		[]func(nbConfirmations int){},
-		[]func(senderContext string, message error){},
+		[]func(senderContext string, error ErrorDetails){},
 		[]func(nbConfirmationReceived int){},
 		0,
 		nil,
@@ -57,7 +56,7 @@ func (ts *TransactionSender) AddOnRequiredConfirmation(handler func(nbConfirmati
 	ts.onRequiredConfirmation = append(ts.onRequiredConfirmation, handler)
 }
 
-func (ts *TransactionSender) AddOnError(handler func(senderContext string, message error)) {
+func (ts *TransactionSender) AddOnError(handler func(senderContext string, error ErrorDetails)) {
 	ts.onError = append(ts.onError, handler)
 }
 
@@ -77,7 +76,7 @@ func (ts *TransactionSender) Unsubscribe(event string) error {
 		case "fullConfirmation":
 			ts.onFullConfirmation = []func(maxConfirmations int){}
 		case "error":
-			ts.onError = []func(senderContext string, message error){}
+			ts.onError = []func(senderContext string, error ErrorDetails){}
 		case "timeout":
 			ts.onTimeout = []func(nbConfirmationReceived int){}
 		default:
@@ -90,7 +89,7 @@ func (ts *TransactionSender) Unsubscribe(event string) error {
 		ts.onConfirmation = []func(nbConfirmations, maxConfirmations int){}
 		ts.onRequiredConfirmation = []func(nbConfirmations int){}
 		ts.onFullConfirmation = []func(maxConfirmations int){}
-		ts.onError = []func(senderContext string, message error){}
+		ts.onError = []func(senderContext string, error ErrorDetails){}
 		ts.onTimeout = []func(nbConfirmationReceived int){}
 	}
 	return nil
@@ -115,7 +114,7 @@ func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmatio
 	go ts.SubscribeTransactionError(transactionAddress, func() {
 		wg.Done()
 	}, func(transactionError TransactionErrorGQL) {
-		ts.handleError(string(transactionError.Context), errors.New(transactionError.Reason))
+		ts.handleError(string(transactionError.Context), transactionError.Error)
 		done <- true
 	})
 
@@ -126,7 +125,7 @@ func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmatio
 		ts.transactionErrorSubscription.CancelSubscription()
 		ts.transactionConfirmedSubscription.CancelSubscription()
 		for _, f := range ts.onError {
-			f(senderContext, err)
+			f(senderContext, ErrorDetails{Message: err.Error(), Code: -1})
 		}
 		return nil
 	} else {
@@ -146,7 +145,11 @@ func (ts *TransactionSender) SubscribeTransactionError(transactionAddress string
 	query := `subscription ($address: Address!){
 		transactionError(address: $address) {
 			context
-			reason
+			error {
+				code,
+				data,
+				message
+			}
 		}
 	}`
 	variables := make(map[string]string)
@@ -234,12 +237,12 @@ func (ts *TransactionSender) handleConfirmation(confirmationThreshold, nbConfirm
 	return false
 }
 
-func (ts *TransactionSender) handleError(context string, reason error) {
+func (ts *TransactionSender) handleError(context string, error ErrorDetails) {
 	ts.timeout.Clear()
 	ts.transactionErrorSubscription.CancelSubscription()
 	ts.transactionConfirmedSubscription.CancelSubscription()
 	for _, f := range ts.onError {
-		f(senderContext, reason)
+		f(context, error)
 	}
 }
 

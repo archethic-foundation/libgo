@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -120,9 +121,30 @@ type TransactionConfirmedGQL struct {
 
 type ErrorContext string
 
+const (
+	INVALID_TRANSACTION = "INVALID_TRANSACTION"
+	NETWORK_ISSUE       = "NETWORK_ISSUE"
+)
+
+type ErrorDetails struct {
+	Code    int    `json:"code"`
+	Data    any    `json:"data"`
+	Message string `json:"message"`
+}
+
+// ErrorDetails implements error interface.
+func (e ErrorDetails) Error() string {
+	if e.Data != nil {
+		// As the `Data` can be of any type, we expose it as JSON to support nested complex structures
+		jsonData, _ := json.Marshal(e.Data)
+		return fmt.Sprintf("%s - reason: %s", e.Message, jsonData)
+	}
+	return e.Message
+}
+
 type TransactionErrorGQL struct {
 	Context ErrorContext
-	Reason  string
+	Error   ErrorDetails
 }
 
 type APIClient struct {
