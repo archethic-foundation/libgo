@@ -1,6 +1,7 @@
 package archethic
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"math/big"
@@ -119,4 +120,16 @@ func FormatBigInt(b *big.Int, formatDecimals uint8) string {
 	}
 
 	return strNumber
+}
+
+func EncodeInt32(number uint32) []byte {
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(bytes, number)
+	return bytes
+}
+
+func EncodeInt64(number uint64) []byte {
+	bytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(bytes, number)
+	return bytes
 }

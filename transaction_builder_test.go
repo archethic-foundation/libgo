@@ -100,9 +100,10 @@ func TestAddOwnership(t *testing.T) {
 		t.Errorf("Failed to set transaction secret")
 	}
 }
+
 func TestAddUCOTransfer(t *testing.T) {
 	tx := TransactionBuilder{TxType: TransferType}
-	amount, _ := ToUint64(10.03, 8)
+	amount, _ := ParseBigInt("10.03", 8)
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		amount,
@@ -117,8 +118,8 @@ func TestAddUCOTransfer(t *testing.T) {
 		t.Errorf("expected to address %v, got %v", expectedTo, tx.Data.Ledger.Uco.Transfers[0].To)
 	}
 
-	expectedAmount, _ := ToUint64(10.03, 8)
-	if tx.Data.Ledger.Uco.Transfers[0].Amount != expectedAmount {
+	expectedAmount, _ := ParseBigInt("10.03", 8)
+	if !reflect.DeepEqual(tx.Data.Ledger.Uco.Transfers[0].Amount, expectedAmount) {
 		t.Errorf("expected amount %d, got %d", expectedAmount, tx.Data.Ledger.Uco.Transfers[0].Amount)
 	}
 }
@@ -126,7 +127,7 @@ func TestAddUCOTransfer(t *testing.T) {
 func TestAddTokenTransfer(t *testing.T) {
 
 	tx := TransactionBuilder{TxType: TransferType}
-	amount, _ := ToUint64(10.03, 8)
+	amount, _ := ParseBigInt("10.03", 8)
 	tx.AddTokenTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
@@ -148,23 +149,23 @@ func TestAddTokenTransfer(t *testing.T) {
 		t.Errorf("expected to token address %v, got %v", expectedTo, tx.Data.Ledger.Token.Transfers[0].TokenAddress)
 	}
 
-	expectedAmount, _ := ToUint64(10.03, 8)
-	if tx.Data.Ledger.Token.Transfers[0].Amount != expectedAmount {
+	expectedAmount, _ := ParseBigInt("10.03", 8)
+	if !reflect.DeepEqual(tx.Data.Ledger.Token.Transfers[0].Amount, expectedAmount) {
 		t.Errorf("expected amount %d, got %d", expectedAmount, tx.Data.Ledger.Token.Transfers[0].Amount)
 	}
 }
 
 func TestPreviousSignaturePayload(t *testing.T) {
 	code := `
-        condition inherit: [
-            uco_transferred: 0.020
-        ]
+	       condition inherit: [
+	           uco_transferred: 0.020
+	       ]
 
-        actions triggered by: transaction do
-            set_type transfer
-            add_uco_ledger to: "000056E763190B28B4CF9AAF3324CF379F27DE9EF7850209FB59AA002D71BA09788A", amount: 0.020
-        end
-    `
+	       actions triggered by: transaction do
+	           set_type transfer
+	           add_uco_ledger to: "000056E763190B28B4CF9AAF3324CF379F27DE9EF7850209FB59AA002D71BA09788A", amount: 0.020
+	       end
+	   `
 	content := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec sit amet leo egestas, lobortis lectus a, dignissim orci.")
 	secret := []byte("mysecret")
 
@@ -183,8 +184,8 @@ func TestPreviousSignaturePayload(t *testing.T) {
 		},
 	)
 
-	amount, _ := ToUint64(0.202, 8)
-	amount2, _ := ToUint64(100, 8)
+	amount, _ := ParseBigInt("0.202", 8)
+	amount2, _ := ParseBigInt("100", 8)
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		amount)
@@ -268,8 +269,8 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	// Nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	amount, _ = ToUint64(0.202, 8)
-	expectedBinary = append(expectedBinary, EncodeInt64(amount)...)
+	amount, _ = ParseBigInt("0.202", 8)
+	expectedBinary = append(expectedBinary, EncodeInt64(amount.Uint64())...)
 
 	// Nb of byte to encode nb of Token transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
@@ -278,8 +279,8 @@ func TestPreviousSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	amount, _ = ToUint64(100, 8)
-	expectedBinary = append(expectedBinary, EncodeInt64(amount)...)
+	amount, _ = ParseBigInt("100", 8)
+	expectedBinary = append(expectedBinary, EncodeInt64(amount.Uint64())...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
@@ -380,7 +381,7 @@ func TestBuild(t *testing.T) {
 
 	ucoAddress, _ := hex.DecodeString("00001ff1733caa91336976ee7cef5aff6bb26c7682213b8e6770ab82272f966dac35")
 
-	amount, _ := ToUint64(10.0, 8)
+	amount, _ := ParseBigInt("10.0", 8)
 	tx.AddUcoTransfer(
 		ucoAddress,
 		amount,
@@ -434,8 +435,8 @@ func TestOriginSignaturePayload(t *testing.T) {
 		},
 	)
 
-	amount, _ := ToUint64(0.202, 8)
-	amount2, _ := ToUint64(100, 8)
+	amount, _ := ParseBigInt("0.202", 8)
+	amount2, _ := ParseBigInt("100", 8)
 	tx.AddUcoTransfer(
 		[]byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646"),
 		amount)
@@ -498,8 +499,8 @@ func TestOriginSignaturePayload(t *testing.T) {
 	// Nb of uco transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	amount, _ = ToUint64(0.202, 8)
-	expectedBinary = append(expectedBinary, EncodeInt64(amount)...)
+	amount, _ = ParseBigInt("0.202", 8)
+	expectedBinary = append(expectedBinary, EncodeInt64(amount.Uint64())...)
 
 	// Nb of byte to encode nb of Token transfers
 	expectedBinary = append(expectedBinary, []byte{1}...)
@@ -508,8 +509,8 @@ func TestOriginSignaturePayload(t *testing.T) {
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88")...)
 	expectedBinary = append(expectedBinary, []byte("0000b1d3750edb9381c96b1a975a55b5b4e4fb37bfab104c10b0b6c9a00433ec4646")...)
-	amount, _ = ToUint64(100, 8)
-	expectedBinary = append(expectedBinary, EncodeInt64(amount)...)
+	amount, _ = ParseBigInt("100", 8)
+	expectedBinary = append(expectedBinary, EncodeInt64(amount.Uint64())...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 	expectedBinary = append(expectedBinary, []byte{1}...)
 
@@ -558,8 +559,12 @@ func TestToJSONMap(t *testing.T) {
 	tx.SetContent([]byte(content))
 	tx.AddRecipient(address)
 	tx.AddRecipientWithNamedAction(address, []byte("vote_for_class_president"), []interface{}{"Rudy"})
-	tx.AddTokenTransfer(address, address, 33, 65)
-	tx.AddUcoTransfer(address, 64)
+
+	tokenAmount, _ := ParseBigInt("33", 8)
+	ucoAmount, _ := ParseBigInt("64", 8)
+
+	tx.AddTokenTransfer(address, address, tokenAmount, 65)
+	tx.AddUcoTransfer(address, ucoAmount)
 
 	// run
 	jsonMap, err := tx.ToJSONMap()
@@ -612,7 +617,8 @@ func TestToJSONMap(t *testing.T) {
 	ledger := data["ledger"].(map[string]interface{})
 	ucoTransfers := ledger["uco"].(map[string]interface{})["transfers"]
 	ucoTransfer1 := ucoTransfers.([]map[string]interface{})[0]
-	if ucoTransfer1["amount"] != uint64(64) {
+
+	if ucoTransfer1["amount"] != ucoAmount.Uint64() {
 		t.Error("Unexpected uco transfer 1 amount")
 	}
 	if ucoTransfer1["to"] != addressHex {
@@ -621,7 +627,8 @@ func TestToJSONMap(t *testing.T) {
 
 	tokenTransfers := ledger["token"].(map[string]interface{})["transfers"]
 	tokenTransfer1 := tokenTransfers.([]map[string]interface{})[0]
-	if tokenTransfer1["amount"] != uint64(33) {
+
+	if tokenTransfer1["amount"] != tokenAmount.Uint64() {
 		t.Error("Unexpected token transfer 1 amount")
 	}
 	if tokenTransfer1["to"] != addressHex {
@@ -630,7 +637,7 @@ func TestToJSONMap(t *testing.T) {
 	if tokenTransfer1["tokenAddress"] != addressHex {
 		t.Error("Unexpected token transfer 1 tokenAddress")
 	}
-	if tokenTransfer1["tokenId"] != 65 {
+	if tokenTransfer1["tokenId"] != uint(65) {
 		t.Error("Unexpected token transfer 1 tokenId")
 	}
 }
