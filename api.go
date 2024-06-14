@@ -196,11 +196,11 @@ func (c *APIClient) GetNearestEndpoints() (*NearestEndpointsGQL, error) {
 
 }
 
-func (c *APIClient) GetLastTransactionIndex(address string) int {
+func (c *APIClient) GetLastTransactionIndex(address string) uint {
 
 	var query struct {
 		LastTransaction struct {
-			ChainLength int
+			ChainLength uint
 		} `graphql:"lastTransaction(address: $address)"`
 	}
 
