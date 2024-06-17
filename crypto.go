@@ -487,15 +487,3 @@ func AesDecrypt(cipherText, key []byte) ([]byte, error) {
 
 	return aesAuthDecrypt(encrypted, key, iv)
 }
-
-func EncodeInt32(number uint32) []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, number)
-	return buf.Bytes()
-}
-
-func EncodeInt64(number uint64) []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, number)
-	return buf.Bytes()
-}

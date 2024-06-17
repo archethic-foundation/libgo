@@ -13,12 +13,12 @@ const senderContext = "SENDER"
 type TransactionSender struct {
 	client                           *APIClient
 	onSent                           []func()
-	onConfirmation                   []func(nbConfirmations, maxConfirmations int)
-	onFullConfirmation               []func(maxConfirmations int)
-	onRequiredConfirmation           []func(nbConfirmations int)
+	onConfirmation                   []func(nbConfirmations, maxConfirmations uint)
+	onFullConfirmation               []func(maxConfirmations uint)
+	onRequiredConfirmation           []func(nbConfirmations uint)
 	onError                          []func(senderContext string, error ErrorDetails)
-	onTimeout                        []func(nbConfirmationReceived int)
-	nbConfirmationReceived           int
+	onTimeout                        []func(nbConfirmationReceived uint)
+	nbConfirmationReceived           uint
 	timeout                          *Timeout
 	transactionErrorSubscription     *AbsintheSubscription
 	transactionConfirmedSubscription *AbsintheSubscription
@@ -28,11 +28,11 @@ func NewTransactionSender(client *APIClient) *TransactionSender {
 	return &TransactionSender{
 		client,
 		[]func(){},
-		[]func(nbConfirmations, maxConfirmations int){},
-		[]func(maxConfirmations int){},
-		[]func(nbConfirmations int){},
+		[]func(nbConfirmations, maxConfirmations uint){},
+		[]func(maxConfirmations uint){},
+		[]func(nbConfirmations uint){},
 		[]func(senderContext string, error ErrorDetails){},
-		[]func(nbConfirmationReceived int){},
+		[]func(nbConfirmationReceived uint){},
 		0,
 		nil,
 		nil,
@@ -44,15 +44,15 @@ func (ts *TransactionSender) AddOnSent(handler func()) {
 	ts.onSent = append(ts.onSent, handler)
 }
 
-func (ts *TransactionSender) AddOnConfirmation(handler func(nbConfirmations, maxConfirmations int)) {
+func (ts *TransactionSender) AddOnConfirmation(handler func(nbConfirmations, maxConfirmations uint)) {
 	ts.onConfirmation = append(ts.onConfirmation, handler)
 }
 
-func (ts *TransactionSender) AddOnFullConfirmation(handler func(maxConfirmations int)) {
+func (ts *TransactionSender) AddOnFullConfirmation(handler func(maxConfirmations uint)) {
 	ts.onFullConfirmation = append(ts.onFullConfirmation, handler)
 }
 
-func (ts *TransactionSender) AddOnRequiredConfirmation(handler func(nbConfirmations int)) {
+func (ts *TransactionSender) AddOnRequiredConfirmation(handler func(nbConfirmations uint)) {
 	ts.onRequiredConfirmation = append(ts.onRequiredConfirmation, handler)
 }
 
@@ -60,7 +60,7 @@ func (ts *TransactionSender) AddOnError(handler func(senderContext string, error
 	ts.onError = append(ts.onError, handler)
 }
 
-func (ts *TransactionSender) AddOnTimeout(handler func(nbConfirmationReceived int)) {
+func (ts *TransactionSender) AddOnTimeout(handler func(nbConfirmationReceived uint)) {
 	ts.onTimeout = append(ts.onTimeout, handler)
 }
 
@@ -70,15 +70,15 @@ func (ts *TransactionSender) Unsubscribe(event string) error {
 		case "sent":
 			ts.onSent = []func(){}
 		case "confirmation":
-			ts.onConfirmation = []func(nbConfirmations, maxConfirmations int){}
+			ts.onConfirmation = []func(nbConfirmations, maxConfirmations uint){}
 		case "requiredConfirmation":
-			ts.onRequiredConfirmation = []func(nbConfirmations int){}
+			ts.onRequiredConfirmation = []func(nbConfirmations uint){}
 		case "fullConfirmation":
-			ts.onFullConfirmation = []func(maxConfirmations int){}
+			ts.onFullConfirmation = []func(maxConfirmations uint){}
 		case "error":
 			ts.onError = []func(senderContext string, error ErrorDetails){}
 		case "timeout":
-			ts.onTimeout = []func(nbConfirmationReceived int){}
+			ts.onTimeout = []func(nbConfirmationReceived uint){}
 		default:
 			return fmt.Errorf("event %s is not supported", event)
 		}
@@ -86,16 +86,16 @@ func (ts *TransactionSender) Unsubscribe(event string) error {
 		ts.transactionErrorSubscription.CancelSubscription()
 		ts.transactionConfirmedSubscription.CancelSubscription()
 		ts.onSent = []func(){}
-		ts.onConfirmation = []func(nbConfirmations, maxConfirmations int){}
-		ts.onRequiredConfirmation = []func(nbConfirmations int){}
-		ts.onFullConfirmation = []func(maxConfirmations int){}
+		ts.onConfirmation = []func(nbConfirmations, maxConfirmations uint){}
+		ts.onRequiredConfirmation = []func(nbConfirmations uint){}
+		ts.onFullConfirmation = []func(maxConfirmations uint){}
 		ts.onError = []func(senderContext string, error ErrorDetails){}
-		ts.onTimeout = []func(nbConfirmationReceived int){}
+		ts.onTimeout = []func(nbConfirmationReceived uint){}
 	}
 	return nil
 }
 
-func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmationThreshold, timeout int) error {
+func (ts *TransactionSender) SendTransaction(tx *TransactionBuilder, confirmationThreshold, timeout uint) error {
 
 	done := make(chan bool)
 	var wg sync.WaitGroup
@@ -206,7 +206,7 @@ func (ts *TransactionSender) SubscribeTransactionConfirmed(transactionAddress st
 	})
 }
 
-func (ts *TransactionSender) handleConfirmation(confirmationThreshold, nbConfirmations, maxConfirmations int) bool {
+func (ts *TransactionSender) handleConfirmation(confirmationThreshold, nbConfirmations, maxConfirmations uint) bool {
 	ts.nbConfirmationReceived = nbConfirmations
 
 	if nbConfirmations == 1 {
@@ -221,7 +221,7 @@ func (ts *TransactionSender) handleConfirmation(confirmationThreshold, nbConfirm
 		for _, f := range ts.onRequiredConfirmation {
 			f(nbConfirmations)
 		}
-		ts.onRequiredConfirmation = []func(nbConfirmations int){}
+		ts.onRequiredConfirmation = []func(nbConfirmations uint){}
 		ts.timeout.Clear()
 		return true
 	}
@@ -246,7 +246,7 @@ func (ts *TransactionSender) handleError(context string, error ErrorDetails) {
 	}
 }
 
-func (ts *TransactionSender) handleSend(timeout int, isFinishedHandler func(bool)) error {
+func (ts *TransactionSender) handleSend(timeout uint, isFinishedHandler func(bool)) error {
 
 	for _, f := range ts.onSent {
 		f()

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"math/big"
 )
 
 // type TransactionType uint8
@@ -119,17 +120,13 @@ func (l UcoLedger) toBytes() []byte {
 
 type UcoTransfer struct {
 	To     []byte
-	Amount uint64
+	Amount *big.Int
 }
 
 func (t UcoTransfer) toBytes() []byte {
 	buf := make([]byte, 0)
 	buf = append(buf, t.To...)
-
-	amountBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(amountBytes, t.Amount)
-
-	buf = append(buf, amountBytes...)
+	buf = append(buf, EncodeInt64(t.Amount.Uint64())...)
 	return buf
 }
 
@@ -154,21 +151,16 @@ func (l TokenLedger) toBytes() []byte {
 type TokenTransfer struct {
 	To           []byte
 	TokenAddress []byte
-	TokenId      int
-	Amount       uint64
+	TokenId      uint
+	Amount       *big.Int
 }
 
 func (t TokenTransfer) toBytes() []byte {
 	buf := make([]byte, 0)
 	buf = append(buf, t.TokenAddress...)
 	buf = append(buf, t.To...)
-
-	amountBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(amountBytes, t.Amount)
-	buf = append(buf, amountBytes...)
-
-	encodedVarInt := EncodeVarInt(uint64(t.TokenId))
-	buf = append(buf, encodedVarInt...)
+	buf = append(buf, EncodeInt64(t.Amount.Uint64())...)
+	buf = append(buf, EncodeVarInt(uint64(t.TokenId))...)
 
 	return buf
 }
@@ -287,14 +279,14 @@ func (t *TransactionBuilder) SetAddress(address []byte) {
 	t.Address = address
 }
 
-func (t *TransactionBuilder) AddUcoTransfer(to []byte, amount uint64) {
+func (t *TransactionBuilder) AddUcoTransfer(to []byte, amount *big.Int) {
 	t.Data.Ledger.Uco.Transfers = append(t.Data.Ledger.Uco.Transfers, UcoTransfer{
 		To:     to,
 		Amount: amount,
 	})
 }
 
-func (t *TransactionBuilder) AddTokenTransfer(to []byte, tokenAddress []byte, amount uint64, tokenId int) {
+func (t *TransactionBuilder) AddTokenTransfer(to []byte, tokenAddress []byte, amount *big.Int, tokenId uint) {
 	t.Data.Ledger.Token.Transfers = append(t.Data.Ledger.Token.Transfers, TokenTransfer{
 		To:           to,
 		TokenAddress: tokenAddress,
@@ -441,14 +433,14 @@ func (t *TransactionBuilder) ToJSONMap() (map[string]interface{}, error) {
 	for i, t := range t.Data.Ledger.Uco.Transfers {
 		ucoTransfers[i] = map[string]interface{}{
 			"to":     hex.EncodeToString(t.To),
-			"amount": t.Amount,
+			"amount": t.Amount.Uint64(),
 		}
 	}
 	tokenTransfers := make([]map[string]interface{}, len(t.Data.Ledger.Token.Transfers))
 	for i, t := range t.Data.Ledger.Token.Transfers {
 		tokenTransfers[i] = map[string]interface{}{
 			"to":           hex.EncodeToString(t.To),
-			"amount":       t.Amount,
+			"amount":       t.Amount.Uint64(),
 			"tokenAddress": hex.EncodeToString(t.TokenAddress),
 			"tokenId":      t.TokenId,
 		}
