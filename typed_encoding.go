@@ -1,6 +1,7 @@
 package archethic
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
@@ -20,7 +21,6 @@ const (
 )
 
 func SerializeTypedData(val interface{}) ([]byte, error) {
-
 	rVal := reflect.ValueOf(val)
 	switch rVal.Kind() {
 	case reflect.Int:
@@ -28,6 +28,19 @@ func SerializeTypedData(val interface{}) ([]byte, error) {
 	case reflect.Float64:
 		return serializeFloat(val.(float64)), nil
 	case reflect.String:
+		jsonNumber, err := getJsonNumber(rVal)
+		if err == nil {
+			// jsonNumber may either be int or float
+			integer, err := jsonNumber.Int64()
+			if err == nil {
+				return serializeInt(int(integer)), nil
+			}
+
+			float, err := jsonNumber.Float64()
+			if err == nil {
+				return serializeFloat(float), nil
+			}
+		}
 		return serializeString(val.(string)), nil
 	case reflect.Map:
 		keys := make([]string, 0)
@@ -285,4 +298,14 @@ func bitToSign(x uint) int {
 	} else {
 		return 1
 	}
+}
+
+func getJsonNumber(rVal reflect.Value) (number json.Number, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("not a number")
+		}
+	}()
+	number = rVal.Interface().(json.Number)
+	return number, nil
 }

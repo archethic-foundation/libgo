@@ -1,16 +1,22 @@
 package archethic
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
 
 func TestSerializeTypedDataInt(t *testing.T) {
-
 	b, _ := SerializeTypedData(10)
 	val, _, _ := DeserializeTypedData(b)
 	if val != 10 {
 		t.Errorf("Expect serialization of int of 10")
+	}
+
+	b, _ = SerializeTypedData(0)
+	val, _, _ = DeserializeTypedData(b)
+	if val != 0 {
+		t.Errorf("Expect serialization of int of 0")
 	}
 
 	b, _ = SerializeTypedData(-10)
@@ -41,6 +47,20 @@ func TestSerializeTypedDataInt(t *testing.T) {
 	val, _, _ = DeserializeTypedData(b)
 	if val != -100000000 {
 		t.Errorf("Expect serialization of int of -100000000")
+	}
+
+	var value json.Number = "1"
+	b, _ = SerializeTypedData(value)
+	val, _, _ = DeserializeTypedData(b)
+	if val != 1 {
+		t.Errorf("Expect serialization of int of 1")
+	}
+
+	value = "-1"
+	b, _ = SerializeTypedData(value)
+	val, _, _ = DeserializeTypedData(b)
+	if val != -1 {
+		t.Errorf("Expect serialization of int of -1")
 	}
 }
 
@@ -80,6 +100,20 @@ func TestSerializeTypedDataFloat(t *testing.T) {
 	if val != -100000000.249204902904 {
 		t.Errorf("Expect serialization of float of -100000000.249204902904")
 	}
+
+	var value json.Number = "1.0"
+	b, _ = SerializeTypedData(value)
+	val, _, _ = DeserializeTypedData(b)
+	if val != 1.0 {
+		t.Errorf("Expect serialization of float of 1.0")
+	}
+
+	value = "-1.0"
+	b, _ = SerializeTypedData(value)
+	val, _, _ = DeserializeTypedData(b)
+	if val != -1.0 {
+		t.Errorf("Expect serialization of float of -1.0")
+	}
 }
 
 func TestSerializeTypedDataString(t *testing.T) {
@@ -93,6 +127,18 @@ func TestSerializeTypedDataString(t *testing.T) {
 	val, _, _ = DeserializeTypedData(b)
 	if val != "" {
 		t.Errorf("Expect serialization of string '' ")
+	}
+
+	b, _ = SerializeTypedData("78")
+	val, _, _ = DeserializeTypedData(b)
+	if val != "78" {
+		t.Errorf("Expect serialization of string '78' ")
+	}
+
+	b, _ = SerializeTypedData("78.0")
+	val, _, _ = DeserializeTypedData(b)
+	if val != "78.0" {
+		t.Errorf("Expect serialization of string '78.0' ")
 	}
 }
 
