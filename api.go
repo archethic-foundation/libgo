@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strings"
@@ -24,7 +25,7 @@ type Timestamp int64
 func (t Timestamp) GetGraphQLType() string { return "Timestamp" }
 
 type Fee struct {
-	Fee   float32
+	Fee   *big.Int
 	Rates struct {
 		Eur float32
 		Usd float32
@@ -66,7 +67,7 @@ type Token struct {
 	Genesis    []byte
 	Name       string
 	Symbol     string
-	Supply     int
+	Supply     *big.Int
 	Type       string
 	Properties [2]interface{}
 	Collection [][2]interface{}
@@ -78,7 +79,7 @@ type TokenGQL struct {
 	Genesis    Address
 	Name       string
 	Symbol     string
-	Supply     int
+	Supply     int64
 	Type       string
 	Properties [2]interface{}
 	Collection [][2]interface{}
@@ -97,26 +98,26 @@ type OracleData struct {
 }
 
 type Balance struct {
-	Uco   int
+	Uco   *big.Int
 	Token []struct {
 		Address []byte
-		Amount  int
-		TokenId int
+		Amount  *big.Int
+		TokenId uint
 	}
 }
 
 type BalanceGQL struct {
-	Uco   int
+	Uco   int64
 	Token []struct {
 		Address Address
-		Amount  int
-		TokenId int
+		Amount  int64
+		TokenId uint
 	}
 }
 
 type TransactionConfirmedGQL struct {
-	NbConfirmations  int
-	MaxConfirmations int
+	NbConfirmations  uint
+	MaxConfirmations uint
 }
 
 type ErrorContext string
@@ -196,11 +197,11 @@ func (c *APIClient) GetNearestEndpoints() (*NearestEndpointsGQL, error) {
 
 }
 
-func (c *APIClient) GetLastTransactionIndex(address string) int {
+func (c *APIClient) GetLastTransactionIndex(address string) uint {
 
 	var query struct {
 		LastTransaction struct {
-			ChainLength int
+			ChainLength uint
 		} `graphql:"lastTransaction(address: $address)"`
 	}
 
@@ -247,16 +248,27 @@ func (c *APIClient) SendTransaction(tx *TransactionBuilder) (SendTransactionResp
 }
 
 func (c *APIClient) GetTransactionFee(tx *TransactionBuilder) (Fee, error) {
-	var fee Fee
 	jsonMap, err := tx.ToJSONMap()
 	if err != nil {
-		return fee, err
+		return Fee{}, err
 	}
 	request := map[string]interface{}{
 		"transaction": jsonMap,
 	}
-	err = c.jsonRpcClient.CallFor(context.Background(), &fee, "estimate_transaction_fee", request)
-	return fee, err
+
+	var feeResponse struct {
+		Fee   int64
+		Rates struct {
+			Eur float32
+			Usd float32
+		}
+	}
+
+	err = c.jsonRpcClient.CallFor(context.Background(), &feeResponse, "estimate_transaction_fee", request)
+	return Fee{
+		Fee:   big.NewInt(feeResponse.Fee),
+		Rates: feeResponse.Rates,
+	}, err
 }
 
 type SimulateResponseError struct {
@@ -372,7 +384,7 @@ func (c *APIClient) GetToken(address string) (Token, error) {
 		Genesis:    genesisAddress,
 		Name:       query.Token.Name,
 		Symbol:     query.Token.Symbol,
-		Supply:     query.Token.Supply,
+		Supply:     big.NewInt(query.Token.Supply),
 		Type:       query.Token.Type,
 		Properties: query.Token.Properties,
 		Collection: query.Token.Collection,
@@ -436,20 +448,21 @@ func (c *APIClient) GetBalance(address string) (Balance, error) {
 
 	tokens := make([]struct {
 		Address []byte
-		Amount  int
-		TokenId int
+		Amount  *big.Int
+		TokenId uint
 	},
 		len(query.Balance.Token))
+
 	for i, token := range query.Balance.Token {
 		tokens[i].Address, err = hex.DecodeString(string(token.Address))
 		if err != nil {
 			return Balance{}, err
 		}
-		tokens[i].Amount = token.Amount
+		tokens[i].Amount = big.NewInt(token.Amount)
 		tokens[i].TokenId = token.TokenId
 	}
 	return Balance{
-		Uco:   query.Balance.Uco,
+		Uco:   big.NewInt(query.Balance.Uco),
 		Token: tokens,
 	}, nil
 }

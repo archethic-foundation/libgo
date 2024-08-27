@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"reflect"
 	"testing"
@@ -221,8 +222,8 @@ func TestGetToken(t *testing.T) {
 		t.Errorf("Error when getting GetToken expected id %s but got %s", expectedId, result.Id)
 	}
 
-	expectedSupply := 3340000000000000
-	if result.Supply != expectedSupply {
+	expectedSupply := big.NewInt(3340000000000000)
+	if !reflect.DeepEqual(expectedSupply, result.Supply) {
 		t.Errorf("Error when getting GetToken expected supply %v but got %v", expectedSupply, result.Supply)
 	}
 }
