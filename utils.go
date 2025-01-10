@@ -75,7 +75,7 @@ func ParseBigInt(number string, formatDecimals uint) (*big.Int, error) {
 	r := regexp.MustCompile(`^([0-9]*)\.?([0-9]*)$`)
 	matches := r.FindAllStringSubmatch(number, -1)
 	if len(matches) == 0 || len(matches[0]) == 0 || len(matches[0][1])+len(matches[0][2]) == 0 {
-		return nil, errors.New("Invalid number")
+		return nil, errors.New("invalid number")
 	}
 
 	wholeStr := matches[0][1]

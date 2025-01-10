@@ -2,6 +2,7 @@ package archethic
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"reflect"
 	"testing"
 )
@@ -50,14 +51,26 @@ func TestSetType(t *testing.T) {
 	}
 }
 
-func TestTransactionBuilder_SetCode(t *testing.T) {
+func TestTransactionBuilder_SetContract(t *testing.T) {
 	tx := TransactionBuilder{
 		TxType: TransferType,
 	}
-	tx.SetCode("my smart contract code") // "my smart contract code" in hex
 
-	if !reflect.DeepEqual(string(tx.Data.Code), "my smart contract code") {
-		t.Errorf("Failed to set transaction code")
+	contract := Contract{
+		Bytecode: []byte{1, 2, 3, 4},
+		Manifest: ContractManifest{
+			ABI: WasmABI{
+				Functions: map[string]WasmFunctionABI{
+					"a": {FunctionType: Action, TriggerType: TriggerTransaction},
+				},
+			},
+		},
+	}
+
+	tx.SetContract(contract)
+
+	if !reflect.DeepEqual(tx.Data.Contract, &contract) {
+		t.Errorf("Failed to set transaction contract")
 	}
 }
 
@@ -156,16 +169,6 @@ func TestAddTokenTransfer(t *testing.T) {
 }
 
 func TestPreviousSignaturePayload(t *testing.T) {
-	code := `
-	       condition inherit: [
-	           uco_transferred: 0.020
-	       ]
-
-	       actions triggered by: transaction do
-	           set_type transfer
-	           add_uco_ledger to: "000056E763190B28B4CF9AAF3324CF379F27DE9EF7850209FB59AA002D71BA09788A", amount: 0.020
-	       end
-	   `
 	content := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec sit amet leo egestas, lobortis lectus a, dignissim orci.")
 	secret := []byte("mysecret")
 
@@ -184,6 +187,17 @@ func TestPreviousSignaturePayload(t *testing.T) {
 		},
 	)
 
+	contract := Contract{
+		Bytecode: []byte{1, 2, 3, 4},
+		Manifest: ContractManifest{
+			ABI: WasmABI{
+				Functions: map[string]WasmFunctionABI{
+					"a": {FunctionType: Action, TriggerType: TriggerTransaction},
+				},
+			},
+		},
+	}
+
 	amount, _ := ParseBigInt("0.202", 8)
 	amount2, _ := ParseBigInt("100", 8)
 	tx.AddUcoTransfer(
@@ -194,7 +208,7 @@ func TestPreviousSignaturePayload(t *testing.T) {
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 		amount2,
 		1)
-	tx.SetCode(code)
+	tx.SetContract(contract)
 	tx.SetContent(content)
 
 	// a unnamed action
@@ -231,13 +245,20 @@ func TestPreviousSignaturePayload(t *testing.T) {
 
 	expectedBinary := make([]byte, 0)
 	// Version
-	expectedBinary = append(expectedBinary, EncodeInt32(3)...)
+	expectedBinary = append(expectedBinary, EncodeInt32(4)...)
 	expectedBinary = append(expectedBinary, tx.Address...)
 	expectedBinary = append(expectedBinary, []byte{253}...)
 
-	// Code size
-	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(code)))...)
-	expectedBinary = append(expectedBinary, []byte(code)...)
+	// Contract size
+	var iface map[string]interface{}
+	bytes, _ := json.Marshal(contract.Manifest)
+	json.Unmarshal(bytes, &iface)
+	manifestBytes, _ := SerializeTypedData(iface)
+
+	expectedBinary = append(expectedBinary, byte(1))
+	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(contract.Bytecode)))...)
+	expectedBinary = append(expectedBinary, contract.Bytecode...)
+	expectedBinary = append(expectedBinary, manifestBytes...)
 
 	// Content size
 	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(content)))...)
@@ -406,16 +427,6 @@ func TestBuild(t *testing.T) {
 }
 
 func TestOriginSignaturePayload(t *testing.T) {
-	code := `
-	condition inherit: [
-		uco_transferred: 0.020
-	  ]
-
-	  actions triggered by: transaction do
-		  set_type transfer
-		  add_uco_ledger to: "000056E763190B28B4CF9AAF3324CF379F27DE9EF7850209FB59AA002D71BA09788A", amount: 0.020
-	  end
-    `
 	content := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec sit amet leo egestas, lobortis lectus a, dignissim orci.")
 	secret := []byte("mysecret")
 	seed := []byte("seed")
@@ -445,7 +456,6 @@ func TestOriginSignaturePayload(t *testing.T) {
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"),
 		amount2,
 		1)
-	tx.SetCode(code)
 	tx.SetContent(content)
 	tx.AddRecipient(
 		[]byte("0000501fa2db78bcf8ceca129e6139d7e38bf0d61eb905441056b9ebe6f1d1feaf88"))
@@ -459,13 +469,12 @@ func TestOriginSignaturePayload(t *testing.T) {
 
 	expectedBinary := make([]byte, 0)
 	// Version
-	expectedBinary = append(expectedBinary, EncodeInt32(3)...)
+	expectedBinary = append(expectedBinary, EncodeInt32(4)...)
 	expectedBinary = append(expectedBinary, tx.Address...)
 	expectedBinary = append(expectedBinary, []byte{253}...)
 
-	// Code size
-	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(code)))...)
-	expectedBinary = append(expectedBinary, []byte(code)...)
+	// Contract size
+	expectedBinary = append(expectedBinary, byte(0))
 
 	// Content size
 	expectedBinary = append(expectedBinary, EncodeInt32(uint32(len(content)))...)
@@ -549,13 +558,22 @@ func TestOriginSign(t *testing.T) {
 func TestToJSONMap(t *testing.T) {
 	addressHex := "00002223bbd4ec3d64ae597696c7d7ade1cee65c639d885450ad2d7b75592ac76afa"
 	address, _ := hex.DecodeString(addressHex)
-	code := "@version 1\ncondition inherit: []"
 	content := "hello"
+	contract := Contract{
+		Bytecode: []byte{1, 2, 3, 4},
+		Manifest: ContractManifest{
+			ABI: WasmABI{
+				Functions: map[string]WasmFunctionABI{
+					"a": {FunctionType: Action, TriggerType: TriggerTransaction},
+				},
+			},
+		},
+	}
 
 	// prepare
 	tx := NewTransaction(DataType)
 	tx.SetAddress([]byte(address))
-	tx.SetCode(code)
+	tx.SetContract(contract)
 	tx.SetContent([]byte(content))
 	tx.AddRecipient(address)
 	tx.AddRecipientWithNamedAction(address, []byte("vote_for_class_president"), []interface{}{"Rudy"})
@@ -579,9 +597,20 @@ func TestToJSONMap(t *testing.T) {
 	}
 
 	data := jsonMap["data"].(map[string]interface{})
-	if data["code"] != code {
-		t.Error("Unexpected code")
+
+	mapContract := data["contract"].(map[string]interface{})
+	if mapContract["bytecode"] != hex.EncodeToString(contract.Bytecode) {
+		t.Error("Unexpected bytecode")
 	}
+
+	mapManifest := mapContract["manifest"].(map[string]interface{})
+	mapABI := mapManifest["abi"].(map[string]interface{})
+	mapFunctions := mapABI["functions"].([]map[string]interface{})
+	functionA := mapFunctions[0]
+	if functionA["type"] != Action {
+		t.Error("Unexpected function type")
+	}
+
 	if data["content"] != content {
 		t.Error("Unexpected content")
 	}
