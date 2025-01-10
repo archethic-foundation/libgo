@@ -1,6 +1,8 @@
 module github.com/archethic-foundation/libgo
 
-go 1.20
+go 1.22.0
+
+toolchain go1.22.4
 
 require (
 	github.com/aead/ecdh v0.2.0
@@ -9,8 +11,8 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1 v1.0.3
 	github.com/hasura/go-graphql-client v0.9.1
 	github.com/nshafer/phx v0.2.0
-	golang.org/x/crypto v0.6.0
 	github.com/ybbus/jsonrpc/v3 v3.1.4
+	golang.org/x/crypto v0.6.0
 )
 
 require (
@@ -19,6 +21,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/klauspost/compress v1.16.0 // indirect
+	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
 	golang.org/x/sys v0.5.0 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
 )

@@ -14,7 +14,7 @@ import (
 type TransactionType uint8
 
 const (
-	Version            uint32          = 3
+	Version            uint32          = 4
 	KeychainType       TransactionType = 255
 	KeychainAccessType TransactionType = 254
 	TransferType       TransactionType = 253
@@ -38,7 +38,7 @@ type TransactionBuilder struct {
 
 type TransactionData struct {
 	Content    []byte
-	Code       []byte
+	Contract   *Contract
 	Ledger     Ledger
 	Ownerships []Ownership
 	Recipients []Recipient
@@ -47,8 +47,12 @@ type TransactionData struct {
 func (t TransactionData) toBytes(tx_version uint32) []byte {
 	buf := make([]byte, 0)
 
-	// Encode code
-	buf = appendSizeAndContent(buf, t.Code, 32)
+	// Encode contract
+	if t.Contract == nil {
+		buf = append(buf, byte(0))
+	} else {
+		buf = append(buf, t.Contract.toBytes()...)
+	}
 
 	// Encode content
 	buf = appendSizeAndContent(buf, t.Content, 32)
@@ -247,8 +251,8 @@ func NewTransaction(txType TransactionType) *TransactionBuilder {
 		Version: Version,
 		TxType:  txType,
 		Data: TransactionData{
-			Code:    []byte{},
-			Content: []byte{},
+			Contract: nil,
+			Content:  []byte{},
 			Ledger: Ledger{
 				Uco: UcoLedger{
 					Transfers: []UcoTransfer{},
@@ -267,8 +271,8 @@ func (t *TransactionBuilder) SetContent(content []byte) {
 	t.Data.Content = content
 }
 
-func (t *TransactionBuilder) SetCode(code string) {
-	t.Data.Code = []byte(code)
+func (t *TransactionBuilder) SetContract(contract Contract) {
+	t.Data.Contract = &contract
 }
 
 func (t *TransactionBuilder) SetType(txType TransactionType) {
@@ -469,9 +473,29 @@ func (t *TransactionBuilder) ToJSONMap() (map[string]interface{}, error) {
 			"args":    args,
 		}
 	}
+
+	var contract map[string]interface{} = nil
+
+	if t.Data.Contract != nil {
+		functionsWASMABI := make([]map[string]interface{}, 0)
+		for fun, f := range t.Data.Contract.Manifest.ABI.Functions {
+			functionsWASMABI = append(functionsWASMABI, f.toMap(fun))
+		}
+
+		contract = map[string]interface{}{
+			"bytecode": hex.EncodeToString(t.Data.Contract.Bytecode),
+			"manifest": map[string]interface{}{
+				"abi": map[string]interface{}{
+					"functions": functionsWASMABI,
+					"state":     t.Data.Contract.Manifest.ABI.State,
+				},
+			},
+		}
+	}
+
 	data := map[string]interface{}{
 		"content":    string(t.Data.Content),
-		"code":       string(t.Data.Code),
+		"contract":   contract,
 		"ownerships": ownerships,
 		"ledger": map[string]interface{}{
 			"uco": map[string]interface{}{
